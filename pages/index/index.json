@@ -1,0 +1,6 @@
+{
+  "usingComponents": {
+    "activity-card": "/components/activity-card/index"
+  },
+  "navigationStyle": "custom"
+}

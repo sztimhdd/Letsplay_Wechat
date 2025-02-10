@@ -1,0 +1,7 @@
+{
+    "usingComponents": {},
+    "navigationStyle": "custom",
+    "navigationBarTextStyle": "white",
+    "pageOrientation": "auto",
+    "enablePullDownRefresh": true
+}

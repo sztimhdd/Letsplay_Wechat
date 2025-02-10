@@ -1,0 +1,33 @@
+<!--index.wxml-->
+<page-meta>
+  <navigation-bar
+    title="运动场地预订"
+    front-color="#000000"
+    background-color="#ffffff"
+  />
+</page-meta>
+
+<view class="container">
+  <!-- 顶部搜索栏 -->
+  <view class="search-bar">
+    <view class="search-box">
+      <icon type="search" size="14" color="#999"/>
+      <input type="text" placeholder="搜索活动" bindinput="onSearch"/>
+    </view>
+  </view>
+
+  <!-- 活动列表 -->
+  <scroll-view class="activity-list" scroll-y>
+    <activity-card 
+      wx:for="{{activities}}" 
+      wx:key="id" 
+      activity="{{item}}"
+    />
+  </scroll-view>
+
+  <!-- 创建活动按钮 (仅管理员可见) -->
+  <view class="create-btn" wx:if="{{isAdmin}}" bindtap="createActivity">
+    <icon type="add" size="20" color="#fff"/>
+    <text>创建活动</text>
+  </view>
+</view>

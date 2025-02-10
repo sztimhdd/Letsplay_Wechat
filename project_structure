@@ -1,0 +1,27 @@
+├── pages/
+│   ├── index/                 // 首页
+│   ├── activity-detail/       // 活动详情页
+│   ├── check-in/             // 签到页面(管理员)
+│   ├── settlement/           // 费用结算页面(管理员)
+│   ├── balance-manage/       // 余额管理页面(管理员)
+│   ├── user-detail/          // 用户详情页(管理员)
+│   └── my-activities/        // 我的活动页
+├── components/               // 公共组件
+│   ├── activity-card/        // 活动卡片组件
+│   └── user-card/           // 用户卡片组件
+├── utils/                   // 工具函数
+│   ├── request.js           // 请求封装
+│   └── util.js             // 通用工具函数
+└── mock/                    // 模拟数据
+    └── data.js             // 假数据
+└── assets/
+    └── icons/
+        ├── home.png
+        ├── home-active.png
+        ├── user.png
+        └── user-active.png
+        └── wechat/
+            ├── home.png           // 首页图标-未选中
+            ├── home-active.png    // 首页图标-选中
+            ├── profile.png        // 我的图标-未选中
+            └── profile-active.png // 我的图标-选中 

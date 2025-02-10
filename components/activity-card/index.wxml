@@ -1,0 +1,20 @@
+<view class="activity-card {{activity.status === 'completed' ? 'completed' : ''}}" bindtap="onTap">
+  <image class="activity-cover" src="{{activity.coverImage}}" mode="aspectFill"/>
+  <view class="activity-info">
+    <view class="activity-title">{{activity.title}}</view>
+    <view class="activity-meta">
+      <view class="meta-item">
+        <icon type="waiting" size="14" color="#666"/>
+        <text>{{activity.date}} {{activity.startTime}}-{{activity.endTime}}</text>
+      </view>
+      <view class="meta-item">
+        <icon type="location" size="14" color="#666"/>
+        <text>{{activity.location}}</text>
+      </view>
+    </view>
+    <view class="activity-footer">
+      <view class="price">¥{{activity.price}}</view>
+      <view class="status-tag {{activity.status}}">{{activity.statusText}}</view>
+    </view>
+  </view>
+</view> 
