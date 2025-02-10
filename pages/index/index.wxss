@@ -1,0 +1,73 @@
+/**index.wxss**/
+page {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.scrollarea {
+  flex: 1;
+  overflow-y: hidden;
+}
+
+.container {
+  min-height: 100vh;
+  background: #f7f7f7;
+  padding-top: 10px;
+  box-sizing: border-box;
+  width: 100%;
+  overflow-x: hidden;  /* 防止水平滚动 */
+}
+
+.header {
+  padding: 20rpx 0;
+}
+
+.search-bar {
+  padding: 8px 16px;
+  background: #fff;
+  margin-bottom: 10px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #f5f5f5;
+  padding: 8px 12px;
+  border-radius: 4px;
+}
+
+.search-box icon {
+  margin-right: 8px;
+}
+
+.search-box input {
+  flex: 1;
+  font-size: 14px;
+}
+
+.activity-list {
+  padding: 0 8px;  /* 进一步减小内边距 */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.create-btn {
+  position: fixed;
+  right: 16px;
+  bottom: 32px;
+  display: flex;
+  align-items: center;
+  background: #1AAD19;
+  color: #fff;
+  padding: 12px 20px;
+  border-radius: 24px;
+  box-shadow: 0 4px 8px rgba(26,173,25,0.2);
+}
+
+.create-btn icon {
+  margin-right: 8px;
+}
+
+.create-btn text {
+  font-size: 14px;
+}

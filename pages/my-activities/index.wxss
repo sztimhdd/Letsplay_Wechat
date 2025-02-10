@@ -1,0 +1,242 @@
+.container {
+  min-height: 100vh;
+  background: #f7f7f7;
+  padding-top: 140px;
+  box-sizing: border-box;
+  width: 100%;
+  overflow-x: hidden;  /* 防止水平滚动 */
+}
+
+.tabs {
+  position: fixed;
+  top: 96px;
+  left: 0;
+  right: 0;
+  height: 44px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  z-index: 10;
+}
+
+.tab-item {
+  flex: 1;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #666;
+  position: relative;
+}
+
+.tab-item.active {
+  color: #1AAD19;
+  font-weight: 500;
+}
+
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 3px;
+  background: #1AAD19;
+  border-radius: 2px;
+}
+
+.activity-list {
+  padding: 0 8px;  /* 进一步减小内边距 */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.activity-card {
+  background: #fff;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.activity-cover {
+  width: 100%;
+  height: 160px;
+}
+
+.activity-info {
+  padding: 12px;
+}
+
+.activity-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.activity-meta {
+  margin-bottom: 12px;
+}
+
+.meta-item {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.meta-item icon {
+  margin-right: 6px;
+}
+
+.activity-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.price {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1AAD19;
+}
+
+.status-tag {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.status-tag.upcoming {
+  background: #e8f5e9;
+  color: #1AAD19;
+}
+
+.status-tag.ongoing {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.status-tag.completed {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.status-tag.cancelled {
+  background: #ffeaea;
+  color: #f44336;
+}
+
+.balance-card {
+  margin: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, #1AAD19 0%, #129611 100%);
+  border-radius: 12px;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(26,173,25,0.2);
+}
+
+.balance-info {
+  flex: 1;
+}
+
+.balance-title {
+  font-size: 14px;
+  opacity: 0.9;
+  margin-bottom: 8px;
+}
+
+.balance-amount {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.balance-btn {
+  display: flex;
+  align-items: center;
+  background: rgba(255,255,255,0.2);
+  padding: 6px 12px;
+  border-radius: 15px;
+  font-size: 14px;
+}
+
+.balance-btn icon {
+  margin-left: 4px;
+}
+
+.list-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-bottom: 30rpx;
+}
+
+.activity-item {
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.activity-item:last-child {
+  border-bottom: none;
+}
+
+.activity-info {
+  margin-bottom: 20rpx;
+}
+
+.title {
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-bottom: 10rpx;
+}
+
+.time, .location {
+  font-size: 26rpx;
+  color: #666;
+  margin-top: 6rpx;
+}
+
+.activity-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.status {
+  font-size: 24rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 20rpx;
+}
+
+.status.upcoming {
+  background: #e8f5e9;
+  color: #1AAD19;
+}
+
+.status.completed {
+  background: #f5f5f5;
+  color: #999;
+}
+
+.status.checked {
+  background: #e8f5e9;
+  color: #1AAD19;
+}
+
+.status.unchecked {
+  background: #fff0f0;
+  color: #ff4d4f;
+}
+
+.fee {
+  font-size: 28rpx;
+  color: #ff6b6b;
+  font-weight: bold;
+} 

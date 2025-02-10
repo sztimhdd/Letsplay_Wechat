@@ -1,0 +1,35 @@
+<view class="container">
+  <!-- 余额卡片 -->
+  <view class="balance-card">
+    <view class="balance-info">
+      <view class="balance-title">账户余额</view>
+      <view class="balance-amount">¥{{balance}}</view>
+    </view>
+    <view class="balance-btn" bindtap="goToBalance">
+      <text>充值</text>
+      <icon type="arrow" size="12" color="#fff"/>
+    </view>
+  </view>
+
+  <!-- 顶部标签页 -->
+  <view class="tabs">
+    <view 
+      class="tab-item {{activeTab === item.key ? 'active' : ''}}" 
+      wx:for="{{tabs}}" 
+      wx:key="key"
+      bindtap="switchTab"
+      data-tab="{{item.key}}"
+    >
+      <text>{{item.name}}</text>
+    </view>
+  </view>
+
+  <!-- 活动列表 -->
+  <scroll-view class="activity-list" scroll-y>
+    <activity-card 
+      wx:for="{{activities}}" 
+      wx:key="id" 
+      activity="{{item}}"
+    />
+  </scroll-view>
+</view> 

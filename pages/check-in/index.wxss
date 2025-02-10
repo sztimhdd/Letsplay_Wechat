@@ -1,0 +1,132 @@
+.container {
+  padding: 30rpx;
+  background: #f6f6f6;
+  min-height: 100vh;
+}
+
+.header {
+  background: #fff;
+  padding: 30rpx;
+  border-radius: 12rpx;
+  margin-bottom: 20rpx;
+}
+
+.activity-info {
+  margin-bottom: 30rpx;
+}
+
+.title {
+  font-size: 36rpx;
+  font-weight: bold;
+  margin-bottom: 10rpx;
+}
+
+.time {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.stats {
+  display: flex;
+  justify-content: space-around;
+  padding: 20rpx 0;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.stat-item {
+  text-align: center;
+}
+
+.number {
+  font-size: 40rpx;
+  font-weight: bold;
+  color: #1AAD19;
+  display: block;
+}
+
+.label {
+  font-size: 24rpx;
+  color: #666;
+}
+
+.member-list {
+  background: #fff;
+  border-radius: 12rpx;
+  padding: 20rpx;
+}
+
+.member-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.member-item:last-child {
+  border-bottom: none;
+}
+
+.member-info {
+  display: flex;
+  align-items: center;
+}
+
+.avatar {
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  margin-right: 20rpx;
+}
+
+.nickname {
+  font-size: 30rpx;
+}
+
+.check-in-action {
+  display: flex;
+  align-items: center;
+}
+
+.status {
+  font-size: 24rpx;
+  margin-right: 20rpx;
+}
+
+.status.checked {
+  color: #1AAD19;
+}
+
+.status.unchecked {
+  color: #999;
+}
+
+.btn {
+  min-width: 120rpx;
+  height: 60rpx;
+  line-height: 60rpx;
+  font-size: 26rpx;
+  margin: 0;
+  padding: 0 20rpx;
+}
+
+.btn.checked {
+  background: #e8f5e9;
+  color: #1AAD19;
+}
+
+.bottom-actions {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 30rpx;
+  background: #fff;
+  box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.05);
+}
+
+.btn.primary {
+  background: #1AAD19;
+  color: #fff;
+  width: 100%;
+} 
