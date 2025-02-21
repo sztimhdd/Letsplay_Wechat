@@ -3,6 +3,9 @@
 /* exported handleAuthClick */
 /* exported handleSignoutClick */
 
+import { GoogleAuth } from './jwt';
+import { credentials } from './credentials';
+
 const SPREADSHEET_ID = '1wXoirvjHN2KuWyvG_xf4bDpQiPN02Ug4925afc1uUTc';
 
 // Authorization scopes required by the API
@@ -35,6 +38,8 @@ class SheetsAPI {
 
     this.baseUrl = 'https://sheets.googleapis.com/v4/spreadsheets';
     this.spreadsheetId = '1wXoirvjHN2KuWyvG_xf4bDpQiPN02Ug4925afc1uUTc';
+
+    this.auth = new GoogleAuth(credentials);
   }
 
   /**
@@ -88,51 +93,11 @@ class SheetsAPI {
    * 获取访问令牌
    */
   async getAccessToken() {
-    const now = Date.now();
-    const oneHour = 3600 * 1000;
-    
-    // 检查缓存的token是否有效
-    const cachedToken = wx.getStorageSync('service_account_token');
-    if (cachedToken && cachedToken.expiresAt > now) {
-      this.accessToken = cachedToken.token;
-      return;
-    }
-
     try {
-      console.log('开始请求token...');
-      const res = await new Promise((resolve, reject) => {
-        wx.request({
-          url: 'http://localhost:3001/getGoogleToken',
-          method: 'GET',
-          timeout: 30000, // 30秒超时
-          header: {
-            'Content-Type': 'application/json'
-          },
-          success: (res) => {
-            console.log('Token请求响应:', res);
-            if (res.statusCode === 200 && res.data.access_token) {
-              resolve(res.data);
-            } else {
-              reject(new Error('获取token失败: ' + JSON.stringify(res.data)));
-            }
-          },
-          fail: (err) => {
-            console.error('请求token失败:', err);
-            reject(new Error('请求token服务器失败: ' + err.errMsg));
-          }
-        });
-      });
-
-      console.log('获取到的token:', res.access_token);
-      this.accessToken = res.access_token;
-      
-      // 缓存token
-      wx.setStorageSync('service_account_token', {
-        token: res.access_token,
-        expiresAt: now + (res.expires_in * 1000)
-      });
+      this.accessToken = await this.auth.getAccessToken();
+      return this.accessToken;
     } catch (err) {
-      console.error('获取token出错:', err);
+      console.error('获取token失败:', err);
       throw err;
     }
   }

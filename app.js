@@ -99,7 +99,6 @@ App({
     async getSheetsAPI() {
         try {
             if (!this.globalData.sheetsAPI) {
-                const { sheetsAPI } = require('./utils/sheets-api');
                 await sheetsAPI.initialize();
                 this.globalData.sheetsAPI = sheetsAPI;
                 console.log('sheetsAPI 初始化完成');

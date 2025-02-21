@@ -40,8 +40,6 @@
     ]
   },
   "usingComponents": {
-    "mp-cells": "weui-miniprogram/cells/cells",
-    "mp-cell": "weui-miniprogram/cell/cell",
     "navigation-bar": "./components/navigation-bar/navigation-bar"
   },
   "networkTimeout": {
@@ -55,8 +53,5 @@
   },
   "requiredPrivateInfos": [
     "getLocation"
-  ],
-  "networkSecurityPolicy": {
-    "enableHttp2": true
-  }
+  ]
 }
