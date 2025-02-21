@@ -132,44 +132,87 @@
   color: #f44336;
 }
 
-.balance-card {
-  margin: 16px;
-  padding: 20px;
-  background: linear-gradient(135deg, #1AAD19 0%, #129611 100%);
-  border-radius: 12px;
-  color: #fff;
+.user-finance {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 4px 12px rgba(26,173,25,0.2);
+  padding: 32rpx;
+  gap: 24rpx;
+  margin-bottom: 32rpx;
 }
 
-.balance-info {
+.finance-card {
   flex: 1;
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
 }
 
-.balance-title {
-  font-size: 14px;
-  opacity: 0.9;
-  margin-bottom: 8px;
+.card-title {
+  font-size: 28rpx;
+  color: #666;
+  margin-bottom: 16rpx;
 }
 
-.balance-amount {
-  font-size: 28px;
+.card-amount {
+  font-size: 40rpx;
   font-weight: 600;
 }
 
-.balance-btn {
-  display: flex;
-  align-items: center;
-  background: rgba(255,255,255,0.2);
-  padding: 6px 12px;
-  border-radius: 15px;
-  font-size: 14px;
+.balance .card-amount {
+  color: #1AAD19;
 }
 
-.balance-btn icon {
-  margin-left: 4px;
+.spent .card-amount {
+  color: #ff4d4f;
+}
+
+.section-title {
+  padding: 32rpx;
+  font-size: 32rpx;
+  font-weight: 500;
+  color: #333;
+}
+
+.transaction-list {
+  background: #fff;
+  padding: 0 32rpx;
+}
+
+.transaction-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #f5f5f5;
+}
+
+.trans-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+}
+
+.trans-type {
+  font-size: 28rpx;
+  color: #333;
+}
+
+.trans-date {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.trans-amount {
+  font-size: 32rpx;
+  font-weight: 500;
+}
+
+.trans-amount.deposit {
+  color: #1AAD19;
+}
+
+.trans-amount.expense {
+  color: #ff4d4f;
 }
 
 .list-title {

@@ -1,35 +1,47 @@
 <view class="container">
-  <!-- 余额卡片 -->
-  <view class="balance-card">
-    <view class="balance-info">
-      <view class="balance-title">账户余额</view>
-      <view class="balance-amount">¥{{balance}}</view>
+  <!-- 用户资金信息 -->
+  <view class="user-finance">
+    <view class="finance-card balance">
+      <view class="card-title">账户余额</view>
+      <view class="card-amount">¥{{balance}}</view>
     </view>
-    <view class="balance-btn" bindtap="goToBalance">
-      <text>充值</text>
-      <icon type="arrow" size="12" color="#fff"/>
+    <view class="finance-card spent">
+      <view class="card-title">年度消费</view>
+      <view class="card-amount">¥{{ytdSpent}}</view>
     </view>
   </view>
 
-  <!-- 顶部标签页 -->
-  <view class="tabs">
-    <view 
-      class="tab-item {{activeTab === item.key ? 'active' : ''}}" 
-      wx:for="{{tabs}}" 
-      wx:key="key"
-      bindtap="switchTab"
-      data-tab="{{item.key}}"
-    >
-      <text>{{item.name}}</text>
+  <!-- 交易记录标题 -->
+  <view class="section-title">
+    <text>交易记录</text>
+  </view>
+
+  <!-- 交易记录列表 -->
+  <view class="transaction-list">
+    <view wx:for="{{transactions}}" 
+          wx:key="index" 
+          class="transaction-item {{item.type}}">
+      <view class="trans-info">
+        <text class="trans-type">{{item.displayTitle}}</text>
+        <text class="trans-date">{{item.date}}</text>
+      </view>
+      <text class="trans-amount {{item.type}}">
+        {{item.type === 'deposit' ? '+' : '-'}}¥{{item.amount}}
+      </text>
+    </view>
+    <view wx:if="{{transactions.length === 0}}" class="no-data">
+      暂无交易记录
     </view>
   </view>
 
   <!-- 活动列表 -->
-  <scroll-view class="activity-list" scroll-y>
+  <view class="activity-list">
     <activity-card 
       wx:for="{{activities}}" 
-      wx:key="id" 
+      wx:key="id"
       activity="{{item}}"
+      bindtap="goToDetail"
+      data-id="{{item.id}}"
     />
-  </scroll-view>
+  </view>
 </view> 

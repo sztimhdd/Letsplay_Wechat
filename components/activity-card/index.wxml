@@ -1,20 +1,52 @@
-<view class="activity-card {{activity.status === 'completed' ? 'completed' : ''}}" bindtap="onTap">
-  <image class="activity-cover" src="{{activity.coverImage}}" mode="aspectFill"/>
-  <view class="activity-info">
-    <view class="activity-title">{{activity.title}}</view>
-    <view class="activity-meta">
-      <view class="meta-item">
-        <icon type="waiting" size="14" color="#666"/>
-        <text>{{activity.date}} {{activity.startTime}}-{{activity.endTime}}</text>
+<view class="activity-card">
+  <!-- 背景图片 -->
+  <image class="card-bg" src="/assets/images/covers/default.webp" mode="aspectFill" bindtap="onTap"/>
+  
+  <!-- 内容区域（添加暗色遮罩效果） -->
+  <view class="card-overlay" bindtap="onTap">
+    <view class="card-header">
+      <view class="date-info">
+        <text class="date">{{activity.displayDate}}</text>
+        <text class="time" wx:if="{{activity.startTime}}">{{activity.startTime}}-{{activity.endTime}}</text>
       </view>
-      <view class="meta-item">
-        <icon type="location" size="14" color="#666"/>
-        <text>{{activity.location}}</text>
+      <text class="status {{activity.status}}">{{activity.status === 'upcoming' ? '进行中' : '已结束'}}</text>
+    </view>
+
+    <view class="card-content">
+      <view class="info-row">
+        <view class="field-info" wx:if="{{activity.field}}">
+          <text class="label">场地</text>
+          <text class="value">{{activity.field}}号</text>
+        </view>
+
+        <view class="participants-info">
+          <text class="label">已报名</text>
+          <view class="value {{participantStatus}}">
+            <text>{{activity.participantCount}}</text>
+            <text class="separator">/</text>
+            <text>{{activity.maxParticipants}}</text>
+          </view>
+        </view>
+
+        <view class="fee-info">
+          <text class="label">人均费用</text>
+          <text class="value">¥{{activity.perPersonFee}}</text>
+        </view>
       </view>
     </view>
-    <view class="activity-footer">
-      <view class="price">¥{{activity.price}}</view>
-      <view class="status-tag {{activity.status}}">{{activity.statusText}}</view>
+  </view>
+
+  <!-- 底部操作区域 -->
+  <view class="footer">
+    <view class="participants">
+      已报名: {{activity.participantCount}}/{{activity.maxParticipants}}
     </view>
+    <button 
+      class="sign-up-btn"
+      bindtap="onSignUp"
+      disabled="{{activity.isFull}}"
+    >
+      {{activity.isFull ? '已满员' : '立即报名'}}
+    </button>
   </view>
 </view> 

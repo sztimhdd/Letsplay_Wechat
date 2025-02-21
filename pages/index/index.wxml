@@ -8,26 +8,30 @@
 </page-meta>
 
 <view class="container">
-  <!-- 顶部搜索栏 -->
-  <view class="search-bar">
-    <view class="search-box">
-      <icon type="search" size="14" color="#999"/>
-      <input type="text" placeholder="搜索活动" bindinput="onSearch"/>
+  <!-- 导航栏占位，防止内容被遮挡 -->
+  <view style="height: {{statusBarHeight}}px"></view>
+
+  <!-- 导航栏 -->
+  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px">
+    <view class="nav-bar-inner">
+      <view class="title">所有活动</view>
     </view>
   </view>
 
   <!-- 活动列表 -->
-  <scroll-view class="activity-list" scroll-y>
+  <view class="activity-list">
     <activity-card 
       wx:for="{{activities}}" 
-      wx:key="id" 
+      wx:key="id"
       activity="{{item}}"
+      bind:tap="goToDetail"
+      data-id="{{item.id}}"
     />
-  </scroll-view>
+  </view>
 
-  <!-- 创建活动按钮 (仅管理员可见) -->
-  <view class="create-btn" wx:if="{{isAdmin}}" bindtap="createActivity">
-    <icon type="add" size="20" color="#fff"/>
-    <text>创建活动</text>
+  <!-- 悬浮的新增按钮 -->
+  <view class="float-btn" bindtap="goToCreateActivity">
+    <icon type="add" size="24" color="#fff"/>
+    <text>新增活动</text>
   </view>
 </view>

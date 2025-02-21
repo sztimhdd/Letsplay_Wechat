@@ -2,7 +2,10 @@
 [Dd]esktop.ini
 Thumbs.db
 $RECYCLE.BIN/
-
+node_modules/
+miniprogram_npm/
+.DS_Store
+project.private.config.json
 # macOS
 .DS_Store
 .fseventsd

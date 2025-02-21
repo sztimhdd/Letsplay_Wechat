@@ -1,0 +1,49 @@
+<!--pages/activity-create/index.wxml-->
+<view class="container">
+  <form bindsubmit="onSubmit">
+    <!-- 日期选择 -->
+    <view class="form-item">
+      <text class="label">活动日期</text>
+      <picker mode="date" value="{{date}}" bindchange="onDateChange">
+        <view class="picker">{{date || '请选择日期'}}</view>
+      </picker>
+    </view>
+
+    <!-- 时间选择 -->
+    <view class="form-group">
+      <view class="form-item">
+        <text class="label">开始时间</text>
+        <picker mode="time" value="{{startTime}}" bindchange="onStartTimeChange">
+          <view class="picker">{{startTime || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="form-item">
+        <text class="label">结束时间</text>
+        <picker mode="time" value="{{endTime}}" bindchange="onEndTimeChange">
+          <view class="picker">{{endTime || '请选择'}}</view>
+        </picker>
+      </view>
+    </view>
+
+    <!-- 场地选择 -->
+    <view class="form-item">
+      <text class="label">场地编号</text>
+      <input type="number" name="field" placeholder="请输入场地编号" value="{{field}}" bindinput="onFieldInput"/>
+    </view>
+
+    <!-- 人数上限 -->
+    <view class="form-item">
+      <text class="label">人数上限</text>
+      <input type="number" name="maxParticipants" placeholder="请输入人数上限" value="{{maxParticipants || 16}}" bindinput="onMaxParticipantsInput"/>
+    </view>
+
+    <!-- 总费用 -->
+    <view class="form-item">
+      <text class="label">场地费用</text>
+      <input type="digit" name="totalFee" placeholder="请输入总费用" value="{{totalFee}}" bindinput="onTotalFeeInput"/>
+    </view>
+
+    <!-- 提交按钮 -->
+    <button class="submit-btn" type="primary" form-type="submit">创建活动</button>
+  </form>
+</view>

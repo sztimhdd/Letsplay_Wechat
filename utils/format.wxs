@@ -1,0 +1,10 @@
+function formatFee(fee) {
+  if (typeof fee !== 'number') {
+    fee = parseFloat(fee) || 0;
+  }
+  return fee.toFixed(2)
+}
+
+module.exports = {
+  formatFee: formatFee
+} 

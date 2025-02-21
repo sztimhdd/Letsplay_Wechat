@@ -7,23 +7,56 @@
         "include": []
     },
     "setting": {
-        "coverView": true,
+        "urlCheck": false,
         "es6": true,
+        "enhance": false,
         "postcss": true,
+        "preloadBackgroundData": false,
         "minified": true,
-        "enhance": true,
+        "newFeature": false,
+        "coverView": true,
+        "nodeModules": false,
+        "autoAudits": false,
         "showShadowRootInWxmlPanel": true,
-        "packNpmRelationList": [],
+        "scopeDataCheck": false,
+        "uglifyFileName": false,
+        "checkInvalidKey": true,
+        "checkSiteMap": true,
+        "uploadWithSourceMap": true,
+        "compileHotReLoad": false,
+        "lazyloadPlaceholderEnable": false,
+        "useMultiFrameRuntime": true,
+        "useApiHook": true,
+        "useApiHostProcess": true,
         "babelSetting": {
             "ignore": [],
             "disablePlugins": [],
             "outputPath": ""
-        }
+        },
+        "enableEngineNative": false,
+        "useIsolateContext": false,
+        "userConfirmedBundleSwitch": false,
+        "packNpmManually": false,
+        "packNpmRelationList": [],
+        "minifyWXSS": true,
+        "showES6CompileOption": false
     },
     "condition": {},
     "editorSetting": {
         "tabIndent": "insertSpaces",
         "tabSize": 4
     },
-    "projectArchitecture": "miniProgram"
+    "projectArchitecture": "miniProgram",
+    "pages": [
+        "pages/index/index",
+        "pages/activity-detail/index",
+        "pages/activity-settlement/index",
+        "pages/fee-settlement/index",
+        "pages/create-activity/index",
+        "pages/my-activities/index",
+        "pages/balance-manage/index"
+    ],
+    "miniprogramRoot": "",
+    "cloudfunctionRoot": "",
+    "cloudfunctionTemplateRoot": ""
 }
