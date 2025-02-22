@@ -53,18 +53,9 @@ Page({
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       
-      // 格式化活动数据
-      const activities = app.globalData.activities.map(activity => ({
-        ...activity,
-        column: activity.column,
-        isFull: activity.currentParticipants >= activity.maxParticipants,
-        perPersonFee: parseFloat(activity.perPersonFee).toFixed(2)
-      }));
-
-      console.log('格式化后的活动数据:', activities);
-
+      // 直接使用全局活动数据，无需额外处理
       this.setData({
-        activities,
+        activities: app.globalData.activities,
         loading: false
       });
 
@@ -120,16 +111,45 @@ Page({
 
   goToCreateActivity() {
     console.log('准备跳转到创建活动页面');
-    wx.navigateTo({
-      url: '/pages/activity-create/index',
-      fail: (err) => {
-        console.error('跳转失败:', err);
-        wx.showToast({
-          title: '跳转失败',
-          icon: 'none'
-        });
-      }
-    });
+    const authTime = wx.getStorageSync('adminAuth');
+    if (!authTime || authTime < Date.now()) {
+      wx.showModal({
+        title: '管理员验证',
+        placeholderText: '请输入管理员密码',
+        editable: true,
+        success: (res) => {
+          if (res.confirm && res.content === '1') {
+            wx.setStorageSync('adminAuth', Date.now() + 3600000);
+            wx.navigateTo({
+              url: '/pages/create-activity/index',
+              fail: (err) => {
+                console.error('跳转失败:', err);
+                wx.showToast({
+                  title: '跳转失败',
+                  icon: 'none'
+                });
+              }
+            });
+          } else if (res.confirm) {
+            wx.showToast({
+              title: '密码错误',
+              icon: 'none'
+            });
+          }
+        }
+      });
+    } else {
+      wx.navigateTo({
+        url: '/pages/create-activity/index',
+        fail: (err) => {
+          console.error('跳转失败:', err);
+          wx.showToast({
+            title: '跳转失败',
+            icon: 'none'
+          });
+        }
+      });
+    }
   },
 
   // 获取元素位置和尺寸信息
@@ -177,14 +197,9 @@ Page({
       // 刷新全局数据
       await app.refreshActivities();
       
-      // 更新页面数据
-      const activities = app.globalData.activities.map(activity => ({
-        ...activity,
-        perPersonFee: parseFloat(activity.perPersonFee).toFixed(2)
-      }));
-
+      // 直接使用刷新后的数据
       this.setData({
-        activities,
+        activities: app.globalData.activities,
         loading: false
       });
 
