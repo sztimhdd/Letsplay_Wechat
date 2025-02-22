@@ -38,6 +38,7 @@ const base64url = {
                               0x80 | (charCode & 0x3f));
             }
         }
+        // 将UTF-8字节数组转换为Base64
         const base64 = wx.arrayBufferToBase64(new Uint8Array(utf8Bytes).buffer);
         return base64url.escape(base64);
     },
