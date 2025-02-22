@@ -14,15 +14,68 @@ const base64url = {
             .replace(/=/g, '');
     },
     encode: (str) => {
-        // 使用更安全的编码方式
-        const bytes = new TextEncoder().encode(str);
-        const base64 = wx.arrayBufferToBase64(bytes.buffer);
+        // 使用更简单的方式进行 UTF-8 编码
+        const utf8Bytes = [];
+        for (let i = 0; i < str.length; i++) {
+            let charCode = str.charCodeAt(i);
+            if (charCode < 0x80) {
+                utf8Bytes.push(charCode);
+            } else if (charCode < 0x800) {
+                utf8Bytes.push(0xc0 | (charCode >> 6),
+                              0x80 | (charCode & 0x3f));
+            } else if (charCode < 0xd800 || charCode >= 0xe000) {
+                utf8Bytes.push(0xe0 | (charCode >> 12),
+                              0x80 | ((charCode >> 6) & 0x3f),
+                              0x80 | (charCode & 0x3f));
+            } else {
+                // 处理 UTF-16 代理对
+                i++;
+                charCode = 0x10000 + (((charCode & 0x3ff) << 10)
+                          | (str.charCodeAt(i) & 0x3ff));
+                utf8Bytes.push(0xf0 | (charCode >> 18),
+                              0x80 | ((charCode >> 12) & 0x3f),
+                              0x80 | ((charCode >> 6) & 0x3f),
+                              0x80 | (charCode & 0x3f));
+            }
+        }
+        const base64 = wx.arrayBufferToBase64(new Uint8Array(utf8Bytes).buffer);
         return base64url.escape(base64);
     },
     decode: (str) => {
         const base64 = base64url.unescape(str);
-        const bytes = wx.base64ToArrayBuffer(base64);
-        return new TextDecoder().decode(bytes);
+        const bytes = new Uint8Array(wx.base64ToArrayBuffer(base64));
+        
+        // 解码 UTF-8
+        let result = '';
+        let i = 0;
+        while (i < bytes.length) {
+            let c = bytes[i];
+            if (c < 0x80) {
+                result += String.fromCharCode(c);
+                i++;
+            } else if (c < 0xe0) {
+                result += String.fromCharCode(
+                    ((c & 0x1f) << 6) |
+                    (bytes[i + 1] & 0x3f)
+                );
+                i += 2;
+            } else if (c < 0xf0) {
+                result += String.fromCharCode(
+                    ((c & 0x0f) << 12) |
+                    ((bytes[i + 1] & 0x3f) << 6) |
+                    (bytes[i + 2] & 0x3f)
+                );
+                i += 3;
+            } else {
+                const codePoint = ((c & 0x07) << 18) |
+                    ((bytes[i + 1] & 0x3f) << 12) |
+                    ((bytes[i + 2] & 0x3f) << 6) |
+                    (bytes[i + 3] & 0x3f);
+                result += String.fromCodePoint(codePoint);
+                i += 4;
+            }
+        }
+        return result;
     }
 };
 

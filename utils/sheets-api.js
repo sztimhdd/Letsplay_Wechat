@@ -649,11 +649,12 @@ class SheetsAPI {
       // 处理成活动卡片需要的格式
       const DEFAULT_MAX_PARTICIPANTS = 16; // 设置默认最大参与人数
       const activities = dates.map((date, index) => {
-        if (!date) return null;
+        // 如果日期为空或者为 'cancelled'，跳过这个活动
+        if (!date || date === 'cancelled') return null;
 
         // 解析场地和人数信息
         const fieldInfo = fields[index] || '';
-        let field = '', maxParticipants = 16; // 默认16人
+        let field = '', maxParticipants = DEFAULT_MAX_PARTICIPANTS;
 
         if (fieldInfo) {
           const matches = fieldInfo.match(/(\d+)号场\s*-\s*(\d+)人/);
@@ -661,9 +662,12 @@ class SheetsAPI {
             field = matches[1];
             maxParticipants = parseInt(matches[2], 10);
           } else {
-            field = fieldInfo; // 如果不匹配新格式，使用原格式
+            field = fieldInfo;
           }
         }
+
+        // 计算列标识（从F开始）
+        const columnLetter = String.fromCharCode(70 + index); // F的ASCII码是70
 
         // 计算参与者
         const participants = userData
@@ -671,10 +675,12 @@ class SheetsAPI {
             const fee = parseFloat(row[this.FEE_START_COLUMN - 1 + index] || 0);
             return fee > 0;
           })
-          .map(row => ({
+          .map((row, signUpIndex) => ({
             name: row[0] || '',
             wechat: row[1] || '',
             fee: parseFloat(row[this.FEE_START_COLUMN - 1 + index] || 0),
+            signUpNumber: signUpIndex + 1,
+            rowIndex: 9 + signUpIndex,
             checkedIn: true  // 付费即视为签到
           }))
           .filter(p => p.wechat && p.fee > 0);
@@ -692,15 +698,15 @@ class SheetsAPI {
         const isUpcoming = dateObj > new Date();
         const status = isUpcoming ? 'upcoming' : 'completed';
 
-        // 生成活动名称 (仅用于前端显示)
+        // 生成活动名称
         const name = `${displayDate} - 足球`;
 
-        // 生成唯一ID：使用日期-场地-时间-索引组合
+        // 生成唯一ID
         const uniqueId = [
-          date.replace(/\//g, ''),  // 移除日期中的斜杠
-          field || 'nf',    // 场地编号，如果没有则用'nf'(no field)
-          timeSlots[index]?.replace(/[:-]/g, '') || 'nt',  // 时间，如果没有则用'nt'(no time)
-          index.toString().padStart(3, '0')  // 添加索引，确保唯一性
+          date.replace(/\//g, ''),
+          field || 'nf',
+          timeSlots[index]?.replace(/[:-]/g, '') || 'nt',
+          index.toString().padStart(3, '0')
         ].join('-');
 
         return {
@@ -718,7 +724,9 @@ class SheetsAPI {
           participantCount: participants.length,
           status: status,
           type: '足球',
-          coverImage: '/assets/images/covers/default.webp'
+          coverImage: '/assets/images/covers/default.webp',
+          column: columnLetter,  // 添加列标识
+          isFull: participants.length >= maxParticipants
         };
       })
       .filter(activity => {
@@ -731,12 +739,13 @@ class SheetsAPI {
       .sort((a, b) => new Date(b.date) - new Date(a.date))
       .slice(0, limit);
 
-      // 打印检查数据
       console.log('处理后的活动数据:', activities.map(a => ({
-        id: a.id,  // 添加ID到日志
+        id: a.id,
         name: a.name,
         participantCount: a.participantCount,
-        perPersonFee: a.perPersonFee
+        perPersonFee: a.perPersonFee,
+        column: a.column,
+        status: a.status
       })));
 
       return activities;

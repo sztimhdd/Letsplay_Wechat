@@ -8,12 +8,20 @@ Page({
     checkedInCount: 0,
     totalParticipants: 0,
     perPersonFee: '0.00',
-    loading: true
+    loading: true,
+    statusBarHeight: 20
   },
 
   async onLoad(options) {
     try {
-      const { id, column } = options;
+      const { id } = options;
+      const windowInfo = wx.getWindowInfo();
+      
+      this.setData({
+        statusBarHeight: windowInfo.statusBarHeight,
+        loading: true
+      });
+
       wx.showLoading({ title: '加载数据...' });
 
       // 获取活动数据
@@ -22,21 +30,19 @@ Page({
         throw new Error('活动不存在');
       }
 
-      // 确保活动有 column 属性
-      const processedActivity = {
-        ...activity,
-        column: column || activity.column || `F${activity.field || activity.id.match(/\d+/)?.[0] || ''}`
-      };
+      // 确保活动已结束
+      if (activity.status !== 'completed') {
+        throw new Error('活动尚未结束，不能进行结算');
+      }
 
       console.log('签到页面活动数据:', {
-        options,
-        activity: processedActivity,
-        hasColumn: !!processedActivity.column,
-        originalActivity: activity
+        activity,
+        hasColumn: !!activity.column,
+        participants: activity.participants
       });
 
       this.setData({
-        activity: processedActivity,
+        activity,
         loading: false
       });
 
@@ -49,6 +55,11 @@ Page({
         title: err.message || '加载失败',
         icon: 'none'
       });
+      
+      // 返回上一页
+      setTimeout(() => {
+        wx.navigateBack();
+      }, 2000);
     } finally {
       wx.hideLoading();
     }
@@ -77,24 +88,21 @@ Page({
         checkedIn: true // 默认已签到
       }));
 
-      console.log('签到页面参与者列表:', {
-        raw: participants,
-        processed: processedParticipants,
-        activityColumn: activity.column,
-        hasRowIndexes: processedParticipants.every(p => !!p.rowIndex)
-      });
+      // 计算人均费用
+      const perPersonFee = (activity.totalFee / Math.max(processedParticipants.length, 1)).toFixed(2);
 
-      // 验证数据完整性
-      if (!processedParticipants.every(p => !!p.rowIndex)) {
-        throw new Error('参与者数据不完整');
-      }
+      console.log('签到页面参与者列表:', {
+        total: processedParticipants.length,
+        perPersonFee,
+        participants: processedParticipants
+      });
 
       // 更新页面数据
       this.setData({
         participants: processedParticipants,
         checkedInCount: processedParticipants.length,
         totalParticipants: processedParticipants.length,
-        perPersonFee: (activity.totalFee / Math.max(processedParticipants.length, 1)).toFixed(2)
+        perPersonFee
       });
 
     } catch (err) {
@@ -112,66 +120,80 @@ Page({
     const participants = [...this.data.participants];
     participants[index].checkedIn = !participants[index].checkedIn;
 
-    // 更新签到统计
+    // 更新签到统计和人均费用
     const checkedInCount = participants.filter(p => p.checkedIn).length;
+    const perPersonFee = (this.data.activity.totalFee / Math.max(checkedInCount, 1)).toFixed(2);
 
     this.setData({
       participants,
       checkedInCount,
-      perPersonFee: (this.data.activity.totalFee / Math.max(checkedInCount, 1)).toFixed(2)
+      perPersonFee
     });
   },
 
   // 保存签到结果
   async saveCheckIn() {
     try {
-      wx.showLoading({ title: '保存中...' });
-      
       const { activity, participants } = this.data;
       if (!activity?.column) {
         throw new Error('活动信息不完整');
       }
 
+      // 获取已签到的参与者
+      const checkedInParticipants = participants.filter(p => p.checkedIn);
+      if (!checkedInParticipants.length) {
+        throw new Error('至少需要一名参与者签到');
+      }
+
+      wx.showLoading({ title: '保存中...' });
+
+      // 获取 sheetsAPI 实例
+      const sheetsAPI = await app.getSheetsAPI();
+      if (!sheetsAPI) {
+        throw new Error('系统初始化失败');
+      }
+
       console.log('准备保存签到数据:', {
         activityColumn: activity.column,
         totalParticipants: participants.length,
-        checkedInCount: participants.filter(p => p.checkedIn).length,
+        checkedInCount: checkedInParticipants.length,
         totalFee: activity.totalFee,
+        perPersonFee: this.data.perPersonFee,
         participants: participants.map(p => ({
           name: p.name,
+          wechat: p.wechat,
           checkedIn: p.checkedIn,
           rowIndex: p.rowIndex
         }))
       });
 
-      // 获取 sheetsAPI 实例
-      const sheetsAPI = await app.getSheetsAPI();
-      console.log('获取到 sheetsAPI:', !!sheetsAPI);
-      
       // 保存签到结果
-      const result = await sheetsAPI.saveCheckInResults(activity.column, participants);
-      console.log('保存签到结果:', result);
+      const result = await sheetsAPI.saveCheckInResults(
+        activity.column,
+        participants.map(p => ({
+          rowIndex: p.rowIndex,
+          checkedIn: p.checkedIn,
+          fee: p.checkedIn ? this.data.perPersonFee : 0
+        }))
+      );
 
-      // 更新页面显示
-      this.setData({
-        checkedInCount: result.checkedInCount,
-        perPersonFee: result.perPersonFee
-      });
+      if (result.success) {
+        // 刷新全局活动数据
+        await app.refreshActivities();
 
-      wx.showToast({
-        title: '保存成功',
-        icon: 'success'
-      });
+        wx.showToast({
+          title: '保存成功',
+          icon: 'success',
+          duration: 2000
+        });
 
-      // 刷新活动数据
-      console.log('开始刷新活动数据...');
-      await app.refreshActivities();
-      console.log('活动数据刷新完成');
-
-      // 返回上一页
-      setTimeout(() => {
-        wx.navigateBack();
-      }, 1500);
+        // 返回上一页
+        setTimeout(() => {
+          wx.navigateBack();
+        }, 2000);
+      } else {
+        throw new Error('保存失败');
+      }
 
     } catch (err) {
       console.error('保存签到结果失败:', err);
@@ -184,24 +206,8 @@ Page({
     }
   },
 
-  // 在页面显示时检查数据
-  async onShow() {
-    if (!this.data.activity && !this.data.loading) {
-      // 如果没有活动数据且不在加载中，尝试刷新数据
-      await app.refreshActivities();
-      const { id } = this.options;
-      if (id) {
-        const activity = app.getActivityById(id);
-        if (activity) {
-          this.setData({
-            activity: {
-              ...activity,
-              column: activity.column || `F${activity.field || activity.id.match(/\d+/)?.[0] || ''}`
-            }
-          });
-          await this.loadParticipants();
-        }
-      }
-    }
+  // 返回上一页
+  goBack() {
+    wx.navigateBack();
   }
 }); 

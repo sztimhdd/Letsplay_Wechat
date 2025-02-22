@@ -1,19 +1,28 @@
+const app = getApp();
+
 Page({
   data: {
     activity: {
-      title: '',
       date: '',
-      startTime: '',
-      endTime: '',
-      location: '',
-      maxMembers: '',
-      totalPrice: '',
-      description: ''
+      startTime: '20:00',
+      endTime: '22:00',
+      field: '',
+      maxParticipants: 16,
+      totalFee: 161
     },
-    adminUnlocked: false
+    today: '',
+    adminUnlocked: false,
+    loading: false
   },
 
   onLoad() {
+    // 设置今天的日期
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
     // 检查管理员权限
     const authTime = wx.getStorageSync('adminAuth')
     if (!authTime || authTime < Date.now()) {
@@ -21,6 +30,12 @@ Page({
     } else {
       this.setData({ adminUnlocked: true })
     }
+
+    // 设置默认值
+    this.setData({
+      today: todayStr,
+      'activity.date': todayStr
+    });
   },
 
   // 验证管理员密码
@@ -62,83 +77,127 @@ Page({
   // 输入框变化
   handleInput(e) {
     const { field } = e.currentTarget.dataset
+    let value = e.detail.value;
+    
+    // 对特定字段进行处理
+    if (field === 'maxParticipants') {
+      value = parseInt(value) || 16;
+    } else if (field === 'totalFee') {
+      value = parseFloat(value) || 161;
+    }
+
     this.setData({
-      [`activity.${field}`]: e.detail.value
+      [`activity.${field}`]: value
     })
   },
 
   // 创建活动
-  createActivity() {
-    const { activity } = this.data
-    
-    // 表单验证
-    if (!this.validateForm()) {
-      return
-    }
-
-    // 获取现有活动列表
-    let activities = wx.getStorageSync('activities') || []
-    
-    // 生成新活动ID
-    const newId = Math.max(...activities.map(a => a.id), 0) + 1
-    
-    // 创建新活动对象
-    const newActivity = {
-      ...activity,
-      id: newId,
-      status: 'upcoming',
-      statusText: '即将开始',
-      participants: [],
-      currentMembers: 0,
-      coverImage: '/assets/images/covers/default.webp',
-      price: Number(activity.totalPrice)  // 初始时显示总价
-    }
-    
-    // 添加到活动列表
-    activities.push(newActivity)
-    wx.setStorageSync('activities', activities)
-    
-    wx.showToast({
-      title: '创建成功',
-      success: () => {
-        setTimeout(() => {
-          wx.navigateBack()
-        }, 1500)
+  async createActivity() {
+    try {
+      const { activity } = this.data;
+      
+      // 表单验证
+      if (!this.validateForm()) {
+        return;
       }
-    })
+
+      this.setData({ loading: true });
+      wx.showLoading({ title: '创建中...' });
+
+      // 获取 sheetsAPI 实例
+      const sheetsAPI = await app.getSheetsAPI();
+      if (!sheetsAPI) {
+        throw new Error('系统初始化失败');
+      }
+
+      // 格式化日期
+      const dateObj = new Date(activity.date);
+      const formattedDate = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${dateObj.getFullYear()}`;
+
+      // 准备活动数据
+      const newActivity = {
+        date: formattedDate,
+        field: `${activity.field}号场 - ${activity.maxParticipants}人`,
+        startTime: activity.startTime,
+        endTime: activity.endTime,
+        totalFee: parseFloat(activity.totalFee),
+        maxParticipants: parseInt(activity.maxParticipants)
+      };
+
+      console.log('准备创建活动:', newActivity);
+
+      // 调用 API 创建活动
+      const result = await sheetsAPI.createActivity(newActivity);
+
+      if (result) {
+        // 刷新全局活动数据
+        await app.refreshActivities();
+
+        wx.showToast({
+          title: '创建成功',
+          icon: 'success',
+          duration: 2000
+        });
+
+        // 返回上一页
+        setTimeout(() => {
+          wx.navigateBack();
+        }, 2000);
+      }
+
+    } catch (err) {
+      console.error('创建活动失败:', err);
+      wx.showToast({
+        title: err.message || '创建失败',
+        icon: 'none'
+      });
+    } finally {
+      this.setData({ loading: false });
+      wx.hideLoading();
+    }
   },
 
   // 表单验证
   validateForm() {
-    const { activity } = this.data
-    const requiredFields = ['title', 'date', 'startTime', 'endTime', 'location', 'maxMembers', 'totalPrice']
+    const { activity } = this.data;
     
-    for (const field of requiredFields) {
-      if (!activity[field]) {
-        wx.showToast({
-          title: '请填写完整信息',
-          icon: 'none'
-        })
-        return false
-      }
+    if (!activity.field) {
+      wx.showToast({
+        title: '请输入场地号',
+        icon: 'none'
+      });
+      return false;
     }
     
-    if (Number(activity.maxMembers) < 2) {
+    if (Number(activity.maxParticipants) < 2) {
       wx.showToast({
         title: '人数至少2人',
         icon: 'none'
-      })
-      return false
+      });
+      return false;
     }
     
-    if (Number(activity.totalPrice) <= 0) {
+    if (Number(activity.totalFee) <= 0) {
       wx.showToast({
         title: '总费用必须大于0',
         icon: 'none'
-      })
-      return false
+      });
+      return false;
+    }
+
+    // 检查日期是否有效
+    const selectedDate = new Date(activity.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (selectedDate < today) {
+      wx.showToast({
+        title: '不能选择过去的日期',
+        icon: 'none'
+      });
+      return false;
     }
     
-    return true
+    return true;
   }
 }) 

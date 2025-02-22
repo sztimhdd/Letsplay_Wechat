@@ -4,7 +4,6 @@
     "pages/web-view/index",
     "pages/create-activity/index",
     "pages/activity-detail/index",
-    "pages/activity-create/index",
     "pages/my-activities/index",
     "pages/balance-manage/index",
     "pages/check-in/index"

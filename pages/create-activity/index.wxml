@@ -1,115 +1,108 @@
 <view class="container">
   <!-- 导航栏 -->
-  <view class="nav-bar" style="padding-top: {{statusBarHeight}}px">
-    <view class="nav-bar-inner">
-      <view class="back-btn" bindtap="goBack">
-        <icon type="back" size="20" color="#000"/>
-      </view>
-      <view class="title">创建活动</view>
-    </view>
-  </view>
+  <navigation-bar 
+    title="创建活动" 
+    back="{{true}}"
+    color="#333333"
+  />
 
-  <view class="form-group">
-    <view class="form-item">
-      <text class="label">活动名称</text>
-      <input 
-        class="input" 
-        placeholder="请输入活动名称"
-        value="{{activity.title}}"
-        data-field="title"
-        bindinput="handleInput"
-      />
-    </view>
-
-    <view class="form-item">
-      <text class="label">活动日期</text>
+  <view class="form-container">
+    <!-- 日期选择 -->
+    <view class="form-item date">
+      <view class="label required">活动日期</view>
       <picker 
         mode="date" 
         value="{{activity.date}}"
+        start="{{today}}"
         bindchange="bindDateChange"
       >
-        <view class="picker">
-          {{activity.date || '请选择日期'}}
+        <view class="picker {{activity.date ? '' : 'placeholder'}}">
+          {{activity.date || '选择日期'}}
         </view>
       </picker>
     </view>
 
-    <view class="form-item">
-      <text class="label">开始时间</text>
-      <picker 
-        mode="time" 
-        value="{{activity.startTime}}"
-        data-type="startTime"
-        bindchange="bindTimeChange"
-      >
-        <view class="picker">
-          {{activity.startTime || '请选择时间'}}
-        </view>
-      </picker>
+    <!-- 时间选择 -->
+    <view class="form-group">
+      <view class="form-item time-item">
+        <view class="label required">开始时间</view>
+        <picker 
+          mode="time" 
+          value="{{activity.startTime}}"
+          data-type="startTime"
+          bindchange="bindTimeChange"
+        >
+          <view class="picker {{activity.startTime ? '' : 'placeholder'}}">
+            {{activity.startTime || '20:00'}}
+          </view>
+        </picker>
+      </view>
+
+      <view class="time-separator">至</view>
+
+      <view class="form-item time-item">
+        <view class="label required">结束时间</view>
+        <picker 
+          mode="time" 
+          value="{{activity.endTime}}"
+          data-type="endTime"
+          bindchange="bindTimeChange"
+        >
+          <view class="picker {{activity.endTime ? '' : 'placeholder'}}">
+            {{activity.endTime || '22:00'}}
+          </view>
+        </picker>
+      </view>
     </view>
 
-    <view class="form-item">
-      <text class="label">结束时间</text>
-      <picker 
-        mode="time" 
-        value="{{activity.endTime}}"
-        data-type="endTime"
-        bindchange="bindTimeChange"
-      >
-        <view class="picker">
-          {{activity.endTime || '请选择时间'}}
-        </view>
-      </picker>
-    </view>
-
-    <view class="form-item">
-      <text class="label">活动地点</text>
-      <input 
-        class="input" 
-        placeholder="请输入活动地点"
-        value="{{activity.location}}"
-        data-field="location"
-        bindinput="handleInput"
-      />
-    </view>
-
-    <view class="form-item">
-      <text class="label">人数上限</text>
+    <!-- 场地选择 -->
+    <view class="form-item field">
+      <view class="label required">场地号</view>
       <input 
         class="input" 
         type="number"
-        placeholder="请输入人数上限"
-        value="{{activity.maxMembers}}"
-        data-field="maxMembers"
+        placeholder="请输入场地号"
+        value="{{activity.field}}"
+        data-field="field"
         bindinput="handleInput"
       />
     </view>
 
-    <view class="form-item">
-      <text class="label">总费用</text>
+    <!-- 人数上限 -->
+    <view class="form-item members">
+      <view class="label">人数上限</view>
+      <input 
+        class="input" 
+        type="number"
+        placeholder="默认16人"
+        value="{{activity.maxParticipants}}"
+        data-field="maxParticipants"
+        bindinput="handleInput"
+      />
+    </view>
+
+    <!-- 总费用 -->
+    <view class="form-item fee">
+      <view class="label required">总费用</view>
       <input 
         class="input" 
         type="digit"
-        placeholder="请输入总费用"
-        value="{{activity.totalPrice}}"
-        data-field="totalPrice"
-        bindinput="handleInput"
-      />
-    </view>
-
-    <view class="form-item">
-      <text class="label">活动说明</text>
-      <textarea 
-        class="textarea"
-        placeholder="请输入活动说明"
-        value="{{activity.description}}"
-        data-field="description"
+        placeholder="默认161元"
+        value="{{activity.totalFee}}"
+        data-field="totalFee"
         bindinput="handleInput"
       />
     </view>
   </view>
 
+  <!-- 创建按钮 -->
   <view class="footer">
-    <button class="btn primary" bindtap="createActivity">创建活动</button>
+    <button 
+      class="submit-btn {{loading ? 'loading' : ''}}" 
+      bindtap="createActivity"
+      disabled="{{loading}}"
+    >
+      <text>{{loading ? '创建中...' : '创建活动'}}</text>
+    </button>
   </view>
 </view> 

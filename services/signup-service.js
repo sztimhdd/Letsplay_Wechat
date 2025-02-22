@@ -67,39 +67,50 @@ class SignUpService {
       console.log('解析列标识:', {
         columnRange,
         columnLetter,
-        match,
         hasSheets: !!sheetsAPI
       });
       
-      // 获取报名数据
-      const signUpRange = `${columnLetter}6:${columnLetter}200`;
+      // 获取报名数据（从第9行开始）
+      const signUpRange = `${columnLetter}9:${columnLetter}200`;
       const signUps = await sheetsAPI.readSheet(`Record!${signUpRange}`);
       
-      // 获取用户基本信息
-      const userInfoRange = 'A6:B200';
+      // 获取用户基本信息（姓名和微信号）
+      const userInfoRange = 'A9:B200';
       const userInfo = await sheetsAPI.readSheet(`Record!${userInfoRange}`);
       
+      console.log('获取到的原始数据:', {
+        signUpRange,
+        userInfoRange,
+        signUpsLength: signUps?.length,
+        userInfoLength: userInfo?.length,
+        signUpSample: signUps?.slice(0, 5),
+        userInfoSample: userInfo?.slice(0, 5)
+      });
+
       // 处理数据
       const participants = [];
       if (signUps && userInfo) {
         for (let i = 0; i < signUps.length; i++) {
-          if (signUps[i][0] && signUps[i][0].toString().trim() !== '') {
-            const rowIndex = i + 6; // 计算实际行号
+          // 检查是否有报名信息（不为空且不为0）
+          const signUpValue = signUps[i]?.[0];
+          if (signUpValue && signUpValue.toString().trim() !== '' && signUpValue !== '0') {
+            const rowIndex = i + 9; // 计算实际行号（从第9行开始）
             participants.push({
-              name: userInfo[i][0],
-              wechat: userInfo[i][1],
-              signUpNumber: signUps[i][0],
-              rowIndex // 确保包含行号
+              name: userInfo[i]?.[0],
+              wechat: userInfo[i]?.[1],
+              signUpNumber: signUpValue,
+              rowIndex
             });
           }
         }
       }
 
-      console.log('获取到的参与者信息:', {
-        signUps,
-        userInfo,
-        processedParticipants: participants,
-        hasRowIndexes: participants.every(p => !!p.rowIndex)
+      console.log('处理后的参与者数据:', {
+        total: participants.length,
+        participants,
+        signUpColumn: columnLetter,
+        hasParticipants: participants.length > 0,
+        firstParticipant: participants[0]
       });
 
       return participants;
@@ -337,6 +348,60 @@ class SignUpService {
 
     } catch (err) {
       console.error('取消报名失败:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 取消活动
+   * @param {string} column 活动列标识
+   * @returns {Promise<Object>} 取消结果
+   */
+  async cancelActivity(column) {
+    try {
+      const sheetsAPI = app.globalData.sheetsAPI;
+      if (!sheetsAPI) {
+        throw new Error('sheetsAPI 未初始化');
+      }
+
+      // 获取列字母
+      const match = column.match(/^([A-Za-z]+)/);
+      if (!match) {
+        throw new Error('无效的列标识');
+      }
+      const columnLetter = match[1];
+
+      console.log('取消活动:', {
+        column,
+        columnLetter,
+        hasSheetsAPI: !!sheetsAPI
+      });
+
+      // 1. 更新活动状态为已取消
+      await sheetsAPI.updateCell(`Record!${columnLetter}2`, 'cancelled');
+
+      // 2. 获取当前报名数据
+      const signUps = await sheetsAPI.readSheet(`Record!${columnLetter}6:${columnLetter}200`);
+      
+      // 3. 清空所有报名数据
+      const clearPromises = [];
+      for (let i = 0; i < signUps.length; i++) {
+        if (signUps[i][0] && signUps[i][0].toString().trim() !== '') {
+          const rowIndex = i + 6;
+          clearPromises.push(
+            sheetsAPI.updateCell(`Record!${columnLetter}${rowIndex}`, '')
+          );
+        }
+      }
+      
+      if (clearPromises.length > 0) {
+        await Promise.all(clearPromises);
+      }
+
+      return { success: true };
+
+    } catch (err) {
+      console.error('取消活动失败:', err);
       throw err;
     }
   }

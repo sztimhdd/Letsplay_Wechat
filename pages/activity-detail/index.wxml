@@ -116,8 +116,9 @@
 </view>
 
 <!-- 管理员面板 -->
-<view class="admin-panel" wx:if="{{isAdmin}}">
-  <view class="panel-item" bindtap="handleAdminCheckIn">
+<view class="admin-panel" wx:if="{{showAdminPanel}}">
+  <view class="panel-item {{(!activity.participants.length || activity.status !== 'completed') ? 'disabled' : ''}}" 
+        bindtap="{{(!activity.participants.length || activity.status !== 'completed') ? '' : 'handleAdminCheckIn'}}">
     <text>签到管理</text>
   </view>
   <view class="panel-item" bindtap="cancelActivity">
