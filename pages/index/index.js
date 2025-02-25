@@ -1,5 +1,6 @@
 // index.js
 const app = getApp();
+const loginService = require('../../utils/login-service');
 
 Page({
   data: {
@@ -17,6 +18,14 @@ Page({
       navPlaceholderHeight: windowInfo.statusBarHeight + 10 // 状态栏高度加10px作为占位
     });
 
+    // 检查登录状态
+    const isLoggedIn = this.checkLoginStatus();
+    
+    // 如果未登录，等待登录页面处理
+    if (!isLoggedIn) {
+      return;
+    }
+
     // 如果活动数据已加载，直接使用
     if (app.globalData.activitiesLoaded) {
       const activities = app.globalData.activities.map(activity => ({
@@ -31,6 +40,28 @@ Page({
     } else {
       // 等待数据加载完成
       await this.loadActivities();
+    }
+  },
+
+  // 检查登录状态
+  checkLoginStatus() {
+    const isLoggedIn = loginService.checkLoginStatus();
+    
+    if (!isLoggedIn) {
+      console.log('用户未登录，跳转到登录页面');
+      wx.navigateTo({
+        url: '/pages/login/index'
+      });
+      return false;
+    } else {
+      const userInfo = loginService.getUserInfo();
+      if (userInfo) {
+        app.globalData.userInfo = userInfo;
+        app.globalData.hasLogin = true;
+      } else {
+        console.log('已登录但无用户信息，需要获取用户信息');
+      }
+      return true;
     }
   },
 

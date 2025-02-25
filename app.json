@@ -1,6 +1,7 @@
 {
   "pages": [
     "pages/index/index",
+    "pages/login/index",
     "pages/web-view/index",
     "pages/create-activity/index",
     "pages/activity-detail/index",

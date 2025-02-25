@@ -1,6 +1,7 @@
 // pages/my-activities/index.js
 
 const app = getApp();
+const loginService = require('../../utils/login-service');
 
 Page({
 
@@ -18,16 +19,107 @@ Page({
         activeTab: 'all',
         balance: '0.00',
         ytdSpent: '0.00',
-        transactions: []
+        transactions: [],
+        userInfo: null,
+        hasUserInfo: false
     },
 
     /**
      * 生命周期函数--监听页面加载
      */
     async onLoad(options) {
+        // 检查登录状态
+        this.checkLoginStatus();
+        
         await this.loadUserData();
         await this.loadTransactions();
         await this.loadActivities();
+    },
+    
+    /**
+     * 检查登录状态
+     */
+    checkLoginStatus() {
+        const isLoggedIn = loginService.checkLoginStatus();
+        
+        if (!isLoggedIn) {
+            console.log('用户未登录，跳转到登录页面');
+            wx.navigateTo({
+                url: '/pages/login/index'
+            });
+            return false;
+        }
+        
+        // 获取用户信息
+        const userInfo = loginService.getUserInfo();
+        if (userInfo) {
+            this.setData({
+                userInfo: userInfo,
+                hasUserInfo: true
+            });
+            app.globalData.userInfo = userInfo;
+            app.globalData.hasLogin = true;
+        } else {
+            console.log('已登录但无用户信息');
+        }
+        
+        return true;
+    },
+    
+    /**
+     * 获取用户信息
+     */
+    getUserProfile() {
+        wx.getUserProfile({
+            desc: '用于完善用户资料',
+            success: (res) => {
+                const userInfo = res.userInfo;
+                // 保存用户信息
+                wx.setStorageSync('userInfo', userInfo);
+                
+                this.setData({
+                    userInfo: userInfo,
+                    hasUserInfo: true
+                });
+                
+                // 更新全局用户信息
+                app.updateUserInfo(userInfo);
+                
+                wx.showToast({
+                    title: '授权成功',
+                    icon: 'success'
+                });
+            },
+            fail: (err) => {
+                console.error('获取用户信息失败:', err);
+                wx.showToast({
+                    title: '获取用户信息失败',
+                    icon: 'none'
+                });
+            }
+        });
+    },
+    
+    /**
+     * 退出登录
+     */
+    logout() {
+        wx.showModal({
+            title: '确认退出',
+            content: '确定要退出登录吗？',
+            success: (res) => {
+                if (res.confirm) {
+                    loginService.clearLoginState();
+                    app.globalData.hasLogin = false;
+                    app.globalData.userInfo = null;
+                    
+                    // 跳转到登录页
+                    wx.navigateTo({
+                        url: '/pages/login/index'
+                    });
+                }
+            }
+        });
     },
 
     async loadUserData() {

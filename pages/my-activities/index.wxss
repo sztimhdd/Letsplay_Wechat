@@ -1,7 +1,7 @@
 .container {
   min-height: 100vh;
   background: #f7f7f7;
-  padding-top: 140px;
+  padding-top: 20px;
   box-sizing: border-box;
   width: 100%;
   overflow-x: hidden;  /* 防止水平滚动 */
@@ -282,4 +282,73 @@
   font-size: 28rpx;
   color: #ff6b6b;
   font-weight: bold;
+}
+
+/* 用户信息样式 */
+.user-info {
+  display: flex;
+  align-items: center;
+  padding: 32rpx;
+  background: #fff;
+  margin-bottom: 20rpx;
+  border-radius: 16rpx;
+  margin: 0 32rpx 32rpx 32rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
+}
+
+.avatar-container {
+  margin-right: 24rpx;
+}
+
+.avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 60rpx;
+  border: 2rpx solid #f0f0f0;
+}
+
+.user-details {
+  flex: 1;
+}
+
+.nickname {
+  font-size: 36rpx;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 12rpx;
+}
+
+.logout-btn {
+  display: inline-block;
+  font-size: 24rpx;
+  color: #999;
+  padding: 6rpx 16rpx;
+  border: 1rpx solid #ddd;
+  border-radius: 24rpx;
+  margin-top: 8rpx;
+}
+
+.logout-btn:active {
+  opacity: 0.8;
+}
+
+.user-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+  margin-top: 8rpx;
+}
+
+.auth-btn {
+  display: inline-block;
+  font-size: 24rpx;
+  color: #1976D2;
+  padding: 6rpx 16rpx;
+  border: 1rpx solid #1976D2;
+  border-radius: 24rpx;
+}
+
+.auth-btn:active {
+  opacity: 0.8;
+  background-color: rgba(25, 118, 210, 0.1);
 } 

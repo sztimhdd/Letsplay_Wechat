@@ -2,6 +2,8 @@
 import { sheetsAPI } from './utils/sheets-api';
 import { testUserActivityDetails } from './utils/test-sheets';
 import { TEST_USER } from './utils/test-data';
+// 导入登录服务
+const loginService = require('./utils/login-service');
 
 App({
     globalData: {
@@ -21,41 +23,83 @@ App({
 
             // 加载所有活动数据
             console.log('开始加载所有活动数据...');
-            const activities = await sheetsAPI.getActivities(200);
+            let activities = await sheetsAPI.getActivities(200);
+            if (!activities.length) {
+                // 如果没有活动数据，则使用测试活动数据
+                // const { testUserActivityDetails } = require('./utils/test-sheets');
+                // activities = await testUserActivityDetails();
+                // console.log('使用测试活动数据:', activities.length);
+            }
             this.globalData.activities = activities;
             this.globalData.activitiesLoaded = true;
             console.log('活动数据加载完成:', activities.length);
 
             // 检查登录状态
-            wx.checkSession({
-                success: () => {
-                    const token = wx.getStorageSync('token');
-                    if (token) {
-                        this.globalData.hasLogin = true;
-                    }
-                }
-            });
+            this.checkLoginStatus();
         } catch (err) {
             console.error('应用初始化失败:', err);
         }
     },
 
+    // 检查登录状态
+    checkLoginStatus() {
+        const isLoggedIn = loginService.checkLoginStatus();
+        this.globalData.hasLogin = isLoggedIn;
+        
+        if (isLoggedIn) {
+            const userInfo = loginService.getUserInfo();
+            if (userInfo) {
+                this.globalData.userInfo = userInfo;
+                console.log('已获取到用户信息:', userInfo);
+            }
+            
+            // 获取当前用户数据
+            this.getCurrentUser();
+        } else {
+            console.log('用户未登录，需要引导用户登录');
+        }
+        
+        return isLoggedIn;
+    },
+
+    // 执行登录流程
+    async doLogin() {
+        try {
+            const loginResult = await loginService.login();
+            if (loginResult.success) {
+                this.globalData.hasLogin = true;
+                
+                // 获取用户信息
+                try {
+                    const userInfo = await loginService.getUserProfile();
+                    this.globalData.userInfo = userInfo;
+                    console.log('获取用户信息成功:', userInfo);
+                } catch (err) {
+                    console.log('用户未授权获取信息:', err);
+                }
+                
+                return true;
+            } else {
+                console.error('登录失败:', loginResult.error);
+                return false;
+            }
+        } catch (err) {
+            console.error('登录过程发生错误:', err);
+            return false;
+        }
+    },
+    
+    // 更新用户信息
+    updateUserInfo(userInfo) {
+        if (userInfo) {
+            this.globalData.userInfo = userInfo;
+            console.log('更新用户信息成功:', userInfo);
+        }
+    },
+
+    // 旧的登录方法，保留兼容性
     login: function() {
-        var self = this;
-        return new Promise(function(resolve, reject) {
-            wx.login({
-                success: function(res) {
-                    if (res.code) {
-                        // TODO: 发送 code 到后台换取 token
-                        self.globalData.hasLogin = true;
-                        resolve(res);
-                    } else {
-                        reject(new Error('登录失败'));
-                    }
-                },
-                fail: reject
-            });
-        });
+        return this.doLogin();
     },
 
     // 获取活动详情的辅助方法
@@ -83,14 +127,17 @@ App({
             return this.globalData.currentUser;
         }
 
-        try {
-            // 直接使用测试用户数据
-            this.globalData.currentUser = TEST_USER;
-            console.log('使用测试用户数据:', TEST_USER);
-            return TEST_USER;
-
-        } catch (err) {
-            console.error('获取用户信息失败:', err);
+        if (this.globalData.hasLogin) {
+            try {
+                const userInfo = await loginService.getUserProfile();
+                this.globalData.currentUser = userInfo;
+                return userInfo;
+            } catch (err) {
+                console.error('获取用户信息失败:', err);
+                return null;
+            }
+        } else {
+            console.log('用户未登录，无法获取用户信息');
             return null;
         }
     },

@@ -3,12 +3,15 @@
  * 管理登录流程和用户信息获取
  */
 
+// 默认头像
+const DEFAULT_AVATAR = '/assets/icons/default-avatar.png';
+
 class LoginService {
   constructor() {
     // 存储用户信息
     this.userInfo = null;
-    // 存储用户openid
-    this.openid = null;
+    // 存储用户code
+    this.code = null;
     // 登录状态
     this.isLoggedIn = false;
     // 初始化检查登录状态
@@ -19,13 +22,12 @@ class LoginService {
    * 检查登录状态
    */
   checkLoginStatus() {
-    const token = wx.getStorageSync('token');
-    const openid = wx.getStorageSync('openid');
+    const code = wx.getStorageSync('wx_code');
     const userInfo = wx.getStorageSync('userInfo');
     
-    if (token && openid) {
+    if (code) {
       this.isLoggedIn = true;
-      this.openid = openid;
+      this.code = code;
       this.userInfo = userInfo;
       console.log('已检测到登录状态');
     } else {
@@ -44,23 +46,18 @@ class LoginService {
     try {
       console.log('开始执行登录流程');
       
-      // 1. 调用微信登录API获取临时登录凭证code
+      // 调用微信登录API获取临时登录凭证code
       const loginResult = await this.wxLogin();
       const code = loginResult.code;
       
       console.log('获取到临时登录凭证code:', code);
       
-      // 2. 发送code到服务器换取openid和session_key
-      // 在这个示例中，我们将直接使用code模拟获取openid的过程
-      // 实际项目中应该发送到你的服务器获取真实openid
-      const openid = await this.mockGetOpenid(code);
-      
-      // 3. 保存登录状态
-      this.saveLoginState(openid);
+      // 保存登录状态
+      this.saveLoginState(code);
       
       return {
         success: true,
-        openid: openid
+        code: code
       };
     } catch (err) {
       console.error('登录失败:', err);
@@ -91,53 +88,27 @@ class LoginService {
   }
   
   /**
-   * 模拟从服务器获取openid
-   * 实际项目中应该将code发送到你的服务器，由服务器调用微信接口获取
-   * @param {string} code 临时登录凭证
-   * @returns {Promise<string>} openid
-   */
-  mockGetOpenid(code) {
-    return new Promise((resolve) => {
-      // 这里使用code生成一个模拟的openid
-      // 实际项目中需要从服务器获取真实openid
-      const mockOpenid = 'openid_' + code + '_' + Date.now();
-      
-      // 模拟网络请求延迟
-      setTimeout(() => {
-        resolve(mockOpenid);
-      }, 500);
-    });
-  }
-  
-  /**
    * 保存登录状态
-   * @param {string} openid 用户openid
+   * @param {string} code 临时登录凭证
    */
-  saveLoginState(openid) {
-    // 生成模拟的token
-    const token = 'token_' + openid + '_' + Date.now();
+  saveLoginState(code) {
+    wx.setStorageSync('wx_code', code);
     
-    // 保存到本地存储
-    wx.setStorageSync('token', token);
-    wx.setStorageSync('openid', openid);
-    
-    // 更新登录状态
     this.isLoggedIn = true;
-    this.openid = openid;
+    this.code = code;
     
-    console.log('已保存登录状态, openid:', openid);
+    console.log('已保存登录状态, code:', code);
   }
   
   /**
    * 清除登录状态
    */
   clearLoginState() {
-    wx.removeStorageSync('token');
-    wx.removeStorageSync('openid');
+    wx.removeStorageSync('wx_code');
     wx.removeStorageSync('userInfo');
     
     this.isLoggedIn = false;
-    this.openid = null;
+    this.code = null;
     this.userInfo = null;
     
     console.log('已清除登录状态');
@@ -152,41 +123,29 @@ class LoginService {
   }
   
   /**
-   * 获取用户openid
-   * @returns {string|null} 用户openid
-   */
-  getOpenid() {
-    return this.openid || wx.getStorageSync('openid');
-  }
-  
-  /**
    * 获取用户信息
    * @returns {Object|null} 用户信息
    */
   getUserInfo() {
     return this.userInfo || wx.getStorageSync('userInfo');
   }
-  
-  /**
-   * 请求用户授权并获取用户信息
-   * @returns {Promise} 用户信息
-   */
-  getUserProfile() {
-    return new Promise((resolve, reject) => {
-      wx.getUserProfile({
-        desc: '用于完善用户资料',
-        success: res => {
-          // 保存用户信息
-          this.userInfo = res.userInfo;
-          wx.setStorageSync('userInfo', res.userInfo);
-          resolve(res.userInfo);
-        },
-        fail: err => {
-          console.error('获取用户信息失败:', err);
-          reject(err);
-        }
+
+  // 获取真实用户信息
+  async getUserProfile() {
+    try {
+      const res = await wx.getUserProfile({
+        desc: '用于完善用户资料'
       });
-    });
+      
+      const userInfo = res.userInfo;
+      wx.setStorageSync('userInfo', userInfo);
+      this.userInfo = userInfo;
+      
+      return userInfo;
+    } catch (err) {
+      console.error('获取用户信息失败:', err);
+      throw err;
+    }
   }
 }
 
@@ -197,9 +156,8 @@ const loginService = new LoginService();
 module.exports = {
   login: loginService.login.bind(loginService),
   wxLogin: loginService.wxLogin.bind(loginService),
-  getUserProfile: loginService.getUserProfile.bind(loginService),
-  getOpenid: loginService.getOpenid.bind(loginService),
   getUserInfo: loginService.getUserInfo.bind(loginService),
+  getUserProfile: loginService.getUserProfile.bind(loginService),
   getLoginStatus: loginService.getLoginStatus.bind(loginService),
   clearLoginState: loginService.clearLoginState.bind(loginService),
   checkLoginStatus: loginService.checkLoginStatus.bind(loginService)

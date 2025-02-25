@@ -1,0 +1,65 @@
+<!--pages/login/index.wxml-->
+<page-meta>
+  <navigation-bar
+    title="登录"
+    front-color="#000000"
+    background-color="#ffffff"
+  />
+</page-meta>
+
+<view class="login-container">
+  <view class="logo-container">
+    <image class="logo" src="/assets/icons/logo.png" mode="aspectFit"></image>
+    <view class="app-name">大家来打球</view>
+  </view>
+  
+  <view class="welcome-text">欢迎使用大家来打球小程序</view>
+  <view class="desc-text">登录后即可参与活动、查看余额等</view>
+  
+  <view class="login-form">
+    <!-- 第一步：微信登录 -->
+    <block wx:if="{{loginStep === 'login' && !isLoggedIn}}">
+      <button 
+        class="login-btn" 
+        bindtap="handleLogin" 
+        loading="{{isLoading}}"
+        hover-class="btn-hover">
+        <image class="wechat-icon" src="/assets/icons/wechat.png" mode="aspectFit"></image>
+        微信一键登录
+      </button>
+      
+      <view class="tips">
+        <text class="tips-text">登录即表示您同意</text>
+        <text class="link-text">《用户协议》</text>
+        <text class="tips-text">和</text>
+        <text class="link-text">《隐私政策》</text>
+      </view>
+    </block>
+    
+    <!-- 第二步：获取用户信息 -->
+    <block wx:if="{{loginStep === 'userInfo' && isLoggedIn && !hasUserInfo}}">
+      <view class="step-title">授权获取头像和昵称</view>
+      <view class="step-desc">我们需要获取您的头像和昵称，以便为您提供更好的服务体验</view>
+      
+      <button 
+        class="profile-btn" 
+        bindtap="getUserProfile" 
+        loading="{{isLoading}}"
+        hover-class="btn-hover">
+        <image class="user-icon" src="/assets/icons/default-avatar.png" mode="aspectFit"></image>
+        授权获取头像和昵称
+      </button>
+      
+      <view class="skip-btn" bindtap="skipUserInfo">跳过授权</view>
+    </block>
+    
+    <!-- 登录成功 -->
+    <block wx:if="{{loginStep === 'complete' && hasUserInfo}}">
+      <view class="user-info">
+        <image class="avatar" src="{{userInfo.avatarUrl}}" mode="aspectFill"></image>
+        <view class="nickname">{{userInfo.nickName}}</view>
+        <view class="login-success">登录成功，正在跳转...</view>
+      </view>
+    </block>
+  </view>
+</view> 

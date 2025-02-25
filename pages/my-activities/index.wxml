@@ -1,4 +1,18 @@
 <view class="container">
+  <!-- 用户信息 -->
+  <view class="user-info">
+    <view class="avatar-container">
+      <image class="avatar" src="{{userInfo.avatarUrl || '/assets/icons/default-avatar.png'}}" mode="aspectFill"></image>
+    </view>
+    <view class="user-details">
+      <view class="nickname">{{userInfo.nickName || '微信用户'}}</view>
+      <view class="user-actions">
+        <view wx:if="{{!userInfo.nickName || userInfo.nickName === '微信用户'}}" class="auth-btn" bindtap="getUserProfile">授权获取头像昵称</view>
+        <view class="logout-btn" bindtap="logout">退出登录</view>
+      </view>
+    </view>
+  </view>
+
   <!-- 用户资金信息 -->
   <view class="user-finance">
     <view class="finance-card balance">

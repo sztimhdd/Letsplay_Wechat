@@ -1,0 +1,157 @@
+/* pages/login/index.wxss */
+page {
+  height: 100vh;
+  background-color: #ffffff;
+}
+
+.login-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 30px;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.logo-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 60px;
+  margin-bottom: 40px;
+}
+
+.logo {
+  width: 120px;
+  height: 120px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+}
+
+.app-name {
+  font-size: 24px;
+  font-weight: bold;
+  color: #333333;
+}
+
+.welcome-text {
+  font-size: 18px;
+  color: #333333;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.desc-text {
+  font-size: 14px;
+  color: #999999;
+  margin-bottom: 50px;
+  text-align: center;
+}
+
+.login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.login-btn, .profile-btn {
+  width: 80%;
+  height: 44px;
+  background-color: #07C160;
+  color: #ffffff;
+  border-radius: 22px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  border: none;
+  position: relative;
+}
+
+.wechat-icon, .user-icon {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+}
+
+.btn-hover {
+  opacity: 0.8;
+  transform: scale(0.98);
+}
+
+.tips {
+  font-size: 12px;
+  color: #999999;
+  text-align: center;
+  margin-top: 20px;
+}
+
+.tips-text {
+  color: #999999;
+}
+
+.link-text {
+  color: #1976D2;
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  margin-bottom: 16px;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.nickname {
+  font-size: 18px;
+  color: #333333;
+  margin-bottom: 10px;
+}
+
+.login-success {
+  font-size: 14px;
+  color: #07C160;
+  margin-top: 10px;
+}
+
+/* 新增样式 */
+.step-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: #333333;
+  margin-bottom: 12px;
+  text-align: center;
+}
+
+.step-desc {
+  font-size: 14px;
+  color: #666666;
+  margin-bottom: 30px;
+  text-align: center;
+  padding: 0 20px;
+}
+
+.profile-btn {
+  background-color: #1976D2;
+}
+
+.skip-btn {
+  font-size: 14px;
+  color: #999999;
+  margin-top: 20px;
+  padding: 10px;
+}
+
+.skip-btn:active {
+  opacity: 0.7;
+} 
