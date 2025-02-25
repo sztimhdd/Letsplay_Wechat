@@ -5,14 +5,16 @@ Page({
   data: {
     activities: [],
     loading: true,
-    statusBarHeight: 20
+    statusBarHeight: 20,
+    navPlaceholderHeight: 30
   },
 
   async onLoad() {
     // 获取系统状态栏高度
     const windowInfo = wx.getWindowInfo();
     this.setData({
-      statusBarHeight: windowInfo.statusBarHeight
+      statusBarHeight: windowInfo.statusBarHeight,
+      navPlaceholderHeight: windowInfo.statusBarHeight + 10 // 状态栏高度加10px作为占位
     });
 
     // 如果活动数据已加载，直接使用

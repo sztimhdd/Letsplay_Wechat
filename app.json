@@ -13,7 +13,7 @@
     "navigationBarBackgroundColor": "#fff",
     "navigationBarTitleText": "运动场地预订",
     "navigationBarTextStyle": "black",
-    "navigationStyle": "custom"
+    "navigationStyle": "default"
   },
   "style": "v2",
   "componentFramework": "glass-easel",
