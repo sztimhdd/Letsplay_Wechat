@@ -129,9 +129,12 @@ App({
 
         if (this.globalData.hasLogin) {
             try {
-                const userInfo = await loginService.getUserProfile();
-                this.globalData.currentUser = userInfo;
-                return userInfo;
+                const userInfo = loginService.getUserInfo();
+                if (userInfo) {
+                    this.globalData.currentUser = userInfo;
+                    return userInfo;
+                }
+                return null;
             } catch (err) {
                 console.error('获取用户信息失败:', err);
                 return null;

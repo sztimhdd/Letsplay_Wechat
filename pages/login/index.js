@@ -1,47 +1,48 @@
 const app = getApp();
 const loginService = require('../../utils/login-service');
 
+// 定义默认用户信息
+const DEFAULT_USER = {
+  nickName: '微信用户',
+  avatarUrl: '/assets/icons/default-avatar.png'
+};
+
 Page({
   data: {
-    canIUseGetUserProfile: false,
     isLoading: false,
-    hasUserInfo: false,
-    userInfo: null,
-    loginStep: 'login', // 'login' 或 'userInfo'
-    isLoggedIn: false
+    loginStep: 'login', // 'login' 或 'complete'
+    isLoggedIn: false,
+    userInfo: DEFAULT_USER
   },
 
   onLoad() {
-    // 检查环境是否支持 getUserProfile
-    if (wx.getUserProfile) {
-      this.setData({
-        canIUseGetUserProfile: true
-      });
-    }
-
     // 检查是否已登录
     const isLoggedIn = loginService.checkLoginStatus();
-    const userInfo = loginService.getUserInfo();
+    const storedUser = loginService.getUserInfo();
 
     if (isLoggedIn) {
       this.setData({
         isLoggedIn: true
       });
-      
-      if (userInfo) {
+
+      if (storedUser) {
         this.setData({
-          hasUserInfo: true,
-          userInfo: userInfo,
+          userInfo: storedUser,
           loginStep: 'complete'
         });
-        
-        // 已登录且有用户信息，跳转到首页
+        app.globalData.userInfo = storedUser;
+        app.globalData.hasLogin = true;
         this.navigateToIndex();
       } else {
-        // 已登录但没有用户信息，显示获取用户信息按钮
+        // 登录了但没有用户信息，则直接使用默认
         this.setData({
-          loginStep: 'userInfo'
+          userInfo: DEFAULT_USER,
+          loginStep: 'complete'
         });
+        wx.setStorageSync('userInfo', DEFAULT_USER);
+        app.globalData.userInfo = DEFAULT_USER;
+        app.globalData.hasLogin = true;
+        this.navigateToIndex();
       }
     }
   },
@@ -55,13 +56,21 @@ Page({
       const loginResult = await loginService.login();
       
       if (loginResult.success) {
-        console.log('登录成功，等待用户授权获取信息');
+        console.log('登录成功，使用默认用户信息');
         
+        // 直接设置默认用户信息，不再授权获取
+        wx.setStorageSync('userInfo', DEFAULT_USER);
         this.setData({
           isLoggedIn: true,
-          loginStep: 'userInfo',
+          userInfo: DEFAULT_USER,
+          loginStep: 'complete',
           isLoading: false
         });
+        
+        app.globalData.userInfo = DEFAULT_USER;
+        app.globalData.hasLogin = true;
+        
+        this.navigateToIndex();
       } else {
         wx.showToast({
           title: '登录失败，请重试',
@@ -77,82 +86,6 @@ Page({
       });
       this.setData({ isLoading: false });
     }
-  },
-
-  // 获取用户信息 - 必须由用户点击触发
-  getUserProfile() {
-    if (!this.data.canIUseGetUserProfile) {
-      wx.showToast({
-        title: '您的微信版本过低，请升级后重试',
-        icon: 'none'
-      });
-      return;
-    }
-    
-    this.setData({ isLoading: true });
-    
-    wx.getUserProfile({
-      desc: '用于完善用户资料',
-      success: (res) => {
-        // 保存用户信息
-        const userInfo = res.userInfo;
-        wx.setStorageSync('userInfo', userInfo);
-        
-        this.setData({
-          hasUserInfo: true,
-          userInfo: userInfo,
-          loginStep: 'complete',
-          isLoading: false
-        });
-        
-        // 更新全局用户信息
-        app.globalData.userInfo = userInfo;
-        app.globalData.hasLogin = true;
-        
-        // 获取用户信息成功后跳转到首页
-        this.navigateToIndex();
-      },
-      fail: (err) => {
-        console.error('获取用户信息失败:', err);
-        wx.showToast({
-          title: '获取用户信息失败，请重试',
-          icon: 'none'
-        });
-        this.setData({ isLoading: false });
-      }
-    });
-  },
-
-  // 跳过获取用户信息
-  skipUserInfo() {
-    wx.showModal({
-      title: '提示',
-      content: '跳过授权将使用默认头像和昵称，您可以稍后在"我的"页面中重新授权',
-      success: (res) => {
-        if (res.confirm) {
-          // 使用默认用户信息
-          const defaultUserInfo = {
-            nickName: '微信用户',
-            avatarUrl: '/assets/icons/default-avatar.png'
-          };
-          
-          // 保存默认用户信息
-          wx.setStorageSync('userInfo', defaultUserInfo);
-          
-          this.setData({
-            hasUserInfo: true,
-            userInfo: defaultUserInfo,
-            loginStep: 'complete'
-          });
-          
-          // 更新全局用户信息
-          app.globalData.userInfo = defaultUserInfo;
-          
-          // 跳转到首页
-          this.navigateToIndex();
-        }
-      }
-    });
   },
 
   // 跳转到首页

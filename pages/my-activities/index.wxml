@@ -7,7 +7,9 @@
     <view class="user-details">
       <view class="nickname">{{userInfo.nickName || '微信用户'}}</view>
       <view class="user-actions">
-        <view wx:if="{{!userInfo.nickName || userInfo.nickName === '微信用户'}}" class="auth-btn" bindtap="getUserProfile">授权获取头像昵称</view>
+        <block wx:if="{{!hasUserInfo && canIUseGetUserProfile}}">
+          <button class="auth-btn" bindtap="getUserProfile">授权获取头像昵称</button>
+        </block>
         <view class="logout-btn" bindtap="logout">退出登录</view>
       </view>
     </view>

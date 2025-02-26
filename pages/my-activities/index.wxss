@@ -1,7 +1,7 @@
 .container {
   min-height: 100vh;
   background: #f7f7f7;
-  padding-top: 20px;
+  padding: 20rpx;
   box-sizing: border-box;
   width: 100%;
   overflow-x: hidden;  /* 防止水平滚动 */
@@ -50,9 +50,8 @@
 }
 
 .activity-list {
-  padding: 0 8px;  /* 进一步减小内边距 */
-  width: 100%;
-  box-sizing: border-box;
+  margin: 24rpx;
+  padding-bottom: 24rpx;
 }
 
 .activity-card {
@@ -132,11 +131,87 @@
   color: #f44336;
 }
 
+/* 用户信息卡片 */
+.user-info {
+  display: flex;
+  align-items: center;
+  padding: 32rpx;
+  background: #fff;
+  margin: 24rpx;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
+  position: relative;
+}
+
+.avatar-container {
+  margin-right: 24rpx;
+  position: relative;
+}
+
+.avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 60rpx;
+  border: 2rpx solid #f0f0f0;
+  background: #f5f5f5;
+}
+
+.user-details {
+  flex: 1;
+}
+
+.nickname {
+  font-size: 36rpx;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 12rpx;
+}
+
+.user-actions {
+  display: flex;
+  flex-direction: row;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.auth-btn {
+  display: inline-block;
+  font-size: 24rpx;
+  color: #1976D2;
+  padding: 8rpx 24rpx;
+  border: 1rpx solid #1976D2;
+  border-radius: 24rpx;
+  background: #fff;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.auth-btn:active {
+  opacity: 0.8;
+  background-color: rgba(25, 118, 210, 0.1);
+}
+
+.logout-btn {
+  display: inline-block;
+  font-size: 24rpx;
+  color: #999;
+  padding: 8rpx 24rpx;
+  border: 1rpx solid #ddd;
+  border-radius: 24rpx;
+  background: #fff;
+}
+
+.logout-btn:active {
+  opacity: 0.8;
+  background-color: #f5f5f5;
+}
+
+/* 资金信息卡片 */
 .user-finance {
   display: flex;
-  padding: 32rpx;
+  padding: 24rpx;
   gap: 24rpx;
-  margin-bottom: 32rpx;
+  margin: 0 24rpx 24rpx 24rpx;
 }
 
 .finance-card {
@@ -166,8 +241,9 @@
   color: #ff4d4f;
 }
 
+/* 交易记录区域 */
 .section-title {
-  padding: 32rpx;
+  padding: 32rpx 24rpx 16rpx 24rpx;
   font-size: 32rpx;
   font-weight: 500;
   color: #333;
@@ -175,15 +251,22 @@
 
 .transaction-list {
   background: #fff;
-  padding: 0 32rpx;
+  margin: 0 24rpx;
+  border-radius: 16rpx;
+  padding: 0;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
 }
 
 .transaction-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 24rpx 0;
+  padding: 24rpx;
   border-bottom: 1rpx solid #f5f5f5;
+}
+
+.transaction-item:last-child {
+  border-bottom: none;
 }
 
 .trans-info {
@@ -215,10 +298,11 @@
   color: #ff4d4f;
 }
 
-.list-title {
-  font-size: 32rpx;
-  font-weight: bold;
-  margin-bottom: 30rpx;
+.no-data {
+  text-align: center;
+  padding: 48rpx 0;
+  color: #999;
+  font-size: 28rpx;
 }
 
 .activity-item {
@@ -282,73 +366,4 @@
   font-size: 28rpx;
   color: #ff6b6b;
   font-weight: bold;
-}
-
-/* 用户信息样式 */
-.user-info {
-  display: flex;
-  align-items: center;
-  padding: 32rpx;
-  background: #fff;
-  margin-bottom: 20rpx;
-  border-radius: 16rpx;
-  margin: 0 32rpx 32rpx 32rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
-}
-
-.avatar-container {
-  margin-right: 24rpx;
-}
-
-.avatar {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 60rpx;
-  border: 2rpx solid #f0f0f0;
-}
-
-.user-details {
-  flex: 1;
-}
-
-.nickname {
-  font-size: 36rpx;
-  font-weight: 500;
-  color: #333;
-  margin-bottom: 12rpx;
-}
-
-.logout-btn {
-  display: inline-block;
-  font-size: 24rpx;
-  color: #999;
-  padding: 6rpx 16rpx;
-  border: 1rpx solid #ddd;
-  border-radius: 24rpx;
-  margin-top: 8rpx;
-}
-
-.logout-btn:active {
-  opacity: 0.8;
-}
-
-.user-actions {
-  display: flex;
-  flex-direction: row;
-  gap: 16rpx;
-  margin-top: 8rpx;
-}
-
-.auth-btn {
-  display: inline-block;
-  font-size: 24rpx;
-  color: #1976D2;
-  padding: 6rpx 16rpx;
-  border: 1rpx solid #1976D2;
-  border-radius: 24rpx;
-}
-
-.auth-btn:active {
-  opacity: 0.8;
-  background-color: rgba(25, 118, 210, 0.1);
 } 

@@ -35,7 +35,7 @@
         <text class="link-text">《隐私政策》</text>
       </view>
     </block>
-    
+
     <!-- 第二步：获取用户信息 -->
     <block wx:if="{{loginStep === 'userInfo' && isLoggedIn && !hasUserInfo}}">
       <view class="step-title">授权获取头像和昵称</view>

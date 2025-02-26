@@ -21,13 +21,21 @@ Page({
         ytdSpent: '0.00',
         transactions: [],
         userInfo: null,
-        hasUserInfo: false
+        hasUserInfo: false,
+        canIUseGetUserProfile: false
     },
 
     /**
      * 生命周期函数--监听页面加载
      */
     async onLoad(options) {
+        // 检查是否支持 getUserProfile
+        if (wx.getUserProfile) {
+            this.setData({
+                canIUseGetUserProfile: true
+            });
+        }
+
         // 检查登录状态
         this.checkLoginStatus();
         
@@ -70,20 +78,35 @@ Page({
      * 获取用户信息
      */
     getUserProfile() {
+        console.log('开始获取用户信息...');
         wx.getUserProfile({
             desc: '用于完善用户资料',
             success: (res) => {
+                console.log('获取用户信息成功, 原始数据:', res);
                 const userInfo = res.userInfo;
+                console.log('解析后的用户信息:', {
+                    昵称: userInfo.nickName,
+                    头像: userInfo.avatarUrl,
+                    性别: userInfo.gender,
+                    语言: userInfo.language,
+                    城市: userInfo.city,
+                    省份: userInfo.province,
+                    国家: userInfo.country
+                });
+
                 // 保存用户信息
                 wx.setStorageSync('userInfo', userInfo);
+                console.log('用户信息已保存到本地存储');
                 
                 this.setData({
                     userInfo: userInfo,
                     hasUserInfo: true
                 });
+                console.log('用户信息已更新到页面数据');
                 
                 // 更新全局用户信息
                 app.updateUserInfo(userInfo);
+                console.log('用户信息已更新到全局数据');
                 
                 wx.showToast({
                     title: '授权成功',
@@ -91,7 +114,12 @@ Page({
                 });
             },
             fail: (err) => {
-                console.error('获取用户信息失败:', err);
+                console.error('获取用户信息失败, 错误信息:', err);
+                console.error('错误详情:', {
+                    错误码: err.errCode,
+                    错误信息: err.errMsg,
+                    错误栈: err.stack
+                });
                 wx.showToast({
                     title: '获取用户信息失败',
                     icon: 'none'
