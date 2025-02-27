@@ -152,21 +152,34 @@ Page({
 
     async loadUserData() {
         try {
-            const currentUser = await app.getCurrentUser();
-            if (!currentUser) return;
+            const wechatId = wx.getStorageSync('wechatId');
+            if (!wechatId) {
+                throw new Error('未找到用户信息');
+            }
 
             const sheetsAPI = await app.getSheetsAPI();
-            const userRow = currentUser.row;
+            
+            // 1. 获取用户在Record表中的行号
+            const userRow = await sheetsAPI.findUserRow(wechatId);
+            if (!userRow) {
+                throw new Error('找不到用户记录');
+            }
 
-            // 获取余额和年度消费
+            // 2. 使用正确的列引用读取余额和年度消费
+            const config = sheetsAPI.SHEET_CONFIG.RECORD.FIXED_COLUMNS;
+            const balanceRange = `${sheetsAPI.SHEETS.RECORD}!${config.BALANCE}${userRow}`;
+            const amountRange = `${sheetsAPI.SHEETS.RECORD}!${config.AMOUNT}${userRow}`;
+
+            // 3. 并行读取数据
             const [balanceData, spentData] = await Promise.all([
-                sheetsAPI.readSheet(`Record!D${userRow}`),
-                sheetsAPI.readSheet(`Record!E${userRow}`)
+                sheetsAPI.readSheet(balanceRange),
+                sheetsAPI.readSheet(amountRange)
             ]);
 
+            // 4. 更新页面数据
             this.setData({
-                balance: parseFloat(balanceData[0][0] || 0).toFixed(2),
-                ytdSpent: parseFloat(spentData[0][0] || 0).toFixed(2)
+                balance: parseFloat(balanceData?.[0]?.[0] || 0).toFixed(2),
+                ytdSpent: parseFloat(spentData?.[0]?.[0] || 0).toFixed(2)
             });
 
         } catch (err) {
@@ -180,178 +193,25 @@ Page({
 
     async loadTransactions() {
         try {
-            const currentUser = await app.getCurrentUser();
-            if (!currentUser) return;
-
             const sheetsAPI = await app.getSheetsAPI();
-            const userRow = currentUser.row;
-            const userWechat = currentUser.wechat;
+            const wechatId = wx.getStorageSync('wechatId');
+            
+            if (!wechatId) {
+                throw new Error('未找到用户信息');
+            }
 
-            // 分批读取日期行
-            const ranges = [
-                'Record!F2:Z2',   // F-Z
-                'Record!AA2:AZ2', // AA-AZ
-                'Record!BA2:BZ2', // BA-BZ
-                'Record!CA2:CZ2'  // CA-CZ
-            ];
+            const transactions = await sheetsAPI.loadUserTransactions(wechatId);
+            console.log('加载到的交易记录:', transactions);
             
-            let allDates = [];
-            for (const range of ranges) {
-                const dateRow = await sheetsAPI.readSheet(range);
-                if (!dateRow || !dateRow[0]) break;
-                allDates = [...allDates, ...dateRow[0]];
-            }
-            
-            if (allDates.length === 0) {
-                throw new Error('无法读取日期行');
-            }
-            
-            // 找到最后一个有日期的列的索引
-            const lastDateIndex = allDates.reduce((lastIndex, date, index) => {
-                return date ? index : lastIndex;
-            }, 0);
-            
-            // 计算最后一列的字母
-            let lastColumn;
-            if (lastDateIndex < 20) { // F-Z
-                lastColumn = String.fromCharCode(70 + lastDateIndex);
-            } else if (lastDateIndex < 46) { // AA-AZ
-                lastColumn = 'A' + String.fromCharCode(65 + (lastDateIndex - 20));
-            } else if (lastDateIndex < 72) { // BA-BZ
-                lastColumn = 'B' + String.fromCharCode(65 + (lastDateIndex - 46));
-            } else if (lastDateIndex < 98) { // CA-CZ
-                lastColumn = 'C' + String.fromCharCode(65 + (lastDateIndex - 72));
-            }
-            
-            if (!lastColumn) {
-                console.warn('列范围过大，将限制在CZ列');
-                lastColumn = 'CZ';
-            }
-            
-            console.log('读取范围:', {
-                开始列: 'F',
-                结束列: lastColumn,
-                总列数: lastDateIndex + 1
+            this.setData({
+                transactions: transactions || []
             });
-
-            // 并行获取扣费记录和充值记录
-            const [expenseRecords, depositRecords, expenseDates] = await Promise.all([
-                sheetsAPI.readSheet(`Record!F${userRow}:${lastColumn}${userRow}`),  // 扣费记录
-                sheetsAPI.readSheet('Deposit Record!A2:D5000'),  // 充值记录
-                sheetsAPI.readSheet(`Record!F2:${lastColumn}2`)  // 获取消费日期行
-            ]);
-
-            // 处理扣费记录
-            const expenses = (expenseRecords[0] || [])
-                .map((amount, index) => {
-                    if (!amount) return null;
-                    
-                    // 判断是否为报名序号
-                    const value = parseFloat(amount);
-                    if (Number.isInteger(value) && value > 0 && value < 100) {
-                        // 可能是报名序号，跳过
-                        return null;
-                    }
-                    
-                    // 从日期行获取对应列的日期
-                    const dateStr = expenseDates[0][index];
-                    if (!dateStr) return null;
-                    
-                    // 解析日期 "MM/DD/YYYY" 格式
-                    const [month, day, year] = dateStr.split('/');
-                    const dateObj = new Date(year, month - 1, day);
-                    
-                    // 获取活动时段（从列标识解析）
-                    const timeSlot = this.getTimeSlotByColumn(String.fromCharCode(70 + index));
-                    
-                    // 根据是否有时段信息构建显示标题
-                    const displayTitle = timeSlot ? 
-                        `${month}月${day}日 - ${timeSlot} - 消费` : 
-                        `${month}月${day}日 - 消费`;
-                    
-                    return {
-                        amount: Math.abs(value).toFixed(2),
-                        type: 'expense',
-                        dateObj,
-                        displayTitle,
-                        date: dateObj.toLocaleDateString('zh-CN', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit'
-                        })
-                    };
-                })
-                .filter(record => record !== null);
-
-            // 处理充值记录
-            const deposits = (depositRecords || [])
-                .map(record => {
-                    if (!record || record[1] !== userWechat) return null;
-                    // 解析日期 "MM/DD/YYYY" 格式
-                    const [month, day, year] = record[0].split('/');
-                    // 存储原始日期对象用于排序
-                    const dateObj = new Date(year, month - 1, day);
-                    return {
-                        amount: parseFloat(record[2]).toFixed(2),
-                        type: 'deposit',
-                        dateObj,
-                        displayTitle: `充值 - ${record[3] === 'Cash' ? '现金充值' : '电子转账'}`,
-                        date: dateObj.toLocaleDateString('zh-CN', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit'
-                        })
-                    };
-                })
-                .filter(record => record !== null);
-
-            // 合并并按日期排序
-            const allTransactions = [...expenses, ...deposits]
-                .sort((a, b) => b.dateObj - a.dateObj) // 直接使用日期对象排序
-                .map(transaction => {
-                    // 创建新对象，排除 dateObj
-                    const newTransaction = {
-                        amount: transaction.amount,
-                        type: transaction.type,
-                        date: transaction.date,
-                        displayTitle: transaction.displayTitle
-                    };
-                    
-                    return newTransaction;
-                });
-
-            // 验证余额
-            const calculatedBalance = allTransactions.reduce((sum, trans) => {
-                return sum + (trans.type === 'deposit' ? 
-                    parseFloat(trans.amount) : 
-                    -parseFloat(trans.amount));
-            }, 0);
-
-            const currentBalance = parseFloat(this.data.balance);
-            
-            console.log('余额验证:', {
-                计算余额: calculatedBalance.toFixed(2),
-                实际余额: currentBalance.toFixed(2),
-                是否匹配: Math.abs(calculatedBalance - currentBalance) < 0.01
-            });
-
-            // 验证余额时添加日志
-            console.log('交易记录:', {
-                总记录: allTransactions.length,
-                消费记录: expenses.length,
-                充值记录: deposits.length,
-                消费明细: expenses.map(e => ({
-                    金额: e.amount,
-                    日期: e.date,
-                    列: e.displayTitle
-                }))
-            });
-
-            this.setData({ transactions: allTransactions });
-
         } catch (err) {
             console.error('加载交易记录失败:', err);
-            this.setData({ transactions: [] });
+            wx.showToast({
+                title: '加载失败',
+                icon: 'none'
+            });
         }
     },
 

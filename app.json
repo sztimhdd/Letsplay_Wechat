@@ -7,7 +7,8 @@
     "pages/activity-detail/index",
     "pages/my-activities/index",
     "pages/balance-manage/index",
-    "pages/check-in/index"
+    "pages/check-in/index",
+    "pages/user-match/index"
   ],
   "window": {
     "backgroundTextStyle": "light",

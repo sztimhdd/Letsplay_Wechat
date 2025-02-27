@@ -19,10 +19,9 @@ class SheetsAPI {
     this.isInitialized = false;
     this.accessToken = null;
     this.SHEETS = {
-      RECORD: 'Record',           // 修改为实际的表名
-      DEPOSIT: 'Deposit Record',  // 修改为实际的表名
-      FEECALCU: 'Feecalcu',      // 修改为实际的表名
-      USER: 'Users'               // 添加User表
+      USER: 'Users',
+      RECORD: 'Record',
+      DEPOSIT: 'Deposit Record'
     };
     
     // 价格表配置
@@ -41,6 +40,95 @@ class SheetsAPI {
     this.spreadsheetId = '1wXoirvjHN2KuWyvG_xf4bDpQiPN02Ug4925afc1uUTc';
 
     this.auth = new GoogleAuth(credentials);
+
+    // 表格结构配置
+    this.SHEET_CONFIG = {
+      RECORD: {
+        FIXED_COLUMNS: {
+          NAME: 'A',      // 姓名
+          WECHAT: 'B',    // 微信号
+          DATE: 'C',      // 日期
+          BALANCE: 'D',   // 余额
+          AMOUNT: 'E'     // 金额
+        },
+        TRANSACTIONS_START: 'F',  // 交易记录开始列
+        TRANSACTIONS_END: 'ZZ',   // 交易记录结束列
+        DATA_START_ROW: 2         // 数据开始行
+      },
+      DEPOSIT: {
+        COLUMNS: {
+          DATE: 'A',      // 充值日期
+          WECHAT: 'B',    // 微信号
+          AMOUNT: 'C',    // 充值金额
+          METHOD: 'D'     // 充值方式
+        },
+        DATA_START_ROW: 2
+      }
+    };
+
+    // 添加缓存配置
+    this.CACHE_CONFIG = {
+      USERS: {
+        KEY: 'cached_users',
+        EXPIRE_TIME: 5 * 60 * 1000  // 5分钟过期
+      }
+    };
+
+    // 缓存数据
+    this.cache = {
+      users: null,
+      lastUpdate: null
+    };
+  }
+
+  /**
+   * 获取交易记录范围
+   */
+  getTransactionsRange() {
+    const config = this.SHEET_CONFIG.RECORD;
+    return `${this.SHEETS.RECORD}!${config.TRANSACTIONS_START}${config.DATA_START_ROW}:${config.TRANSACTIONS_END}`;
+  }
+
+  /**
+   * 加载交易记录
+   */
+  async loadTransactions() {
+    try {
+      const range = this.getTransactionsRange();
+      console.log('读取交易记录范围:', range);
+      const data = await this.readSheet(range);
+      return data || [];
+    } catch (err) {
+      console.error('加载交易记录失败:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 获取用户余额
+   */
+  async getUserBalance(wechatId) {
+    try {
+      const config = this.SHEET_CONFIG.RECORD;
+      const range = `${this.SHEETS.RECORD}!${config.FIXED_COLUMNS.NAME}${config.DATA_START_ROW}:${config.FIXED_COLUMNS.BALANCE}`;
+      const data = await this.readSheet(range);
+      
+      if (!data || data.length === 0) return '0.00';
+      
+      // 从后往前查找该用户的最新余额记录
+      for (let i = data.length - 1; i >= 0; i--) {
+        const row = data[i];
+        // 检查是否是目标用户且有余额数据
+        if (row[1] === wechatId && row[3]) {  // B列是微信ID，D列是余额
+          return parseFloat(row[3]).toFixed(2);
+        }
+      }
+      
+      return '0.00';
+    } catch (err) {
+      console.error('获取用户余额失败:', err);
+      return '0.00';
+    }
   }
 
   /**
@@ -974,24 +1062,44 @@ class SheetsAPI {
     }
   }
 
-  // 辅助方法：格式化日期
+  /**
+   * 格式化日期
+   * @private
+   */
   formatDate(dateStr) {
     try {
-      const dateObj = new Date(dateStr.replace(/(\d+)\/(\d+)\/(\d+)/, '$3/$1/$2'));
-      const month = dateObj.getMonth() + 1;
-      const day = dateObj.getDate();
-      return {
-        dateObj,
-        displayDate: `${month}月${day}日`,
-        isUpcoming: dateObj > new Date()
-      };
+      if (!dateStr) return '';
+      
+      // 检查日期格式
+      if (typeof dateStr !== 'string') {
+        console.warn('日期格式不正确:', dateStr);
+        return '';
+      }
+
+      // 处理不同的日期格式
+      if (dateStr.includes('/')) {
+        // 处理 MM/DD/YYYY 格式
+        const [month, day, year] = dateStr.split('/');
+        if (!month || !day || !year) {
+          console.warn('日期格式不完整:', dateStr);
+          return dateStr;
+        }
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      } else if (dateStr.includes('-')) {
+        // 已经是 YYYY-MM-DD 格式
+        return dateStr;
+      } else {
+        // 其他格式，尝试用 Date 对象处理
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) {
+          console.warn('无法解析的日期格式:', dateStr);
+          return dateStr;
+        }
+        return date.toISOString().split('T')[0];
+      }
     } catch (err) {
-      console.error('日期格式化错误:', err);
-      return {
-        dateObj: new Date(),
-        displayDate: dateStr,
-        isUpcoming: false
-      };
+      console.error('格式化日期失败:', err, dateStr);
+      return dateStr || '';
     }
   }
 
@@ -1472,100 +1580,70 @@ class SheetsAPI {
   }
 
   /**
-   * 智能更新User表数据
+   * 更新用户表
    */
   async updateUserTable() {
     try {
-      console.log('开始更新User表...');
+      // 1. 获取当前用户信息
+      const wechatId = wx.getStorageSync('wechatId');
+      const openid = wx.getStorageSync('openid');
       
-      // 1. 获取现有User表数据
-      const userRange = `${this.SHEETS.USER}!A2:C`; // 从第2行开始，跳过表头
-      const existingUserData = await this.readSheet(userRange);
+      if (!wechatId || !openid) {
+        console.log('缺少用户信息，无需更新User表');
+        return {
+          success: true,
+          totalUsers: 0,
+          newUsers: 0,
+          message: '缺少用户信息'
+        };
+      }
+
+      // 2. 读取现有用户数据
+      const userRange = `${this.SHEETS.USER}!A2:C`;
+      const existingData = await this.readSheet(userRange);
+      
+      // 3. 创建用户映射
       const existingUsers = new Map();
-      
-      if (existingUserData && existingUserData.length > 0) {
-        existingUserData.forEach(row => {
-          if (row[0]) { // 如果有微信ID
+      if (existingData) {
+        existingData.forEach(row => {
+          if (row[0]) {
             existingUsers.set(row[0], {
               wechatId: row[0],
-              pinyinName: row[1],
+              pinyinName: row[1] || '',
               openId: row[2] || ''
             });
           }
         });
       }
-      console.log(`当前User表中有 ${existingUsers.size} 个用户`);
 
-      // 2. 从Record表获取用户数据（A、B列，从第9行开始）
-      const recordRange = `${this.SHEETS.RECORD}!A9:B`;
-      const recordData = await this.readSheet(recordRange);
-      
-      // 3. 从Deposit Record表获取用户数据（B列用户名）
-      const depositRange = `${this.SHEETS.DEPOSIT}!B2:B`;
-      const depositData = await this.readSheet(depositRange);
-
-      // 4. 合并所有来源的用户数据
-      const allUsers = new Map(existingUsers);
-      
-      // 处理Record表数据
-      if (recordData && recordData.length > 0) {
-        recordData
-          .filter(row => row[0] && row[1]) // 确保名字和微信ID都存在
-          .forEach(row => {
-            const wechatId = row[1];
-            if (!allUsers.has(wechatId)) {
-              allUsers.set(wechatId, {
-                wechatId: wechatId,
-                pinyinName: row[0],
-                openId: ''
-              });
-            }
-          });
-      }
-
-      // 处理Deposit表数据
-      if (depositData && depositData.length > 0) {
-        depositData
-          .filter(row => row[0]) // 确保微信ID存在
-          .forEach(row => {
-            const wechatId = row[0];
-            if (!allUsers.has(wechatId)) {
-              allUsers.set(wechatId, {
-                wechatId: wechatId,
-                pinyinName: '', // 从Deposit表中只能获取微信ID
-                openId: ''
-              });
-            }
-          });
-      }
-
-      // 5. 检查是否有新用户添加
-      const newUsersCount = allUsers.size - existingUsers.size;
-      console.log(`发现 ${newUsersCount} 个新用户`);
-
-      // 6. 如果有更新，写入完整的User表
-      if (newUsersCount > 0) {
-        const userTableData = [
-          ['Wechat ID', 'Pinyin Name', 'OpenID'], // 表头
-          ...Array.from(allUsers.values()).map(user => [
-            user.wechatId,
-            user.pinyinName,
-            user.openId
-          ])
-        ];
-
-        // 写入完整数据
-        const fullRange = `${this.SHEETS.USER}!A1:C${allUsers.size + 1}`;
-        await this.writeSheet(fullRange, userTableData);
-        console.log('User表更新完成');
+      // 4. 检查当前用户是否需要更新
+      const currentUser = existingUsers.get(wechatId);
+      if (currentUser) {
+        if (currentUser.openId !== openid) {
+          // 需要更新 OpenID
+          const userIndex = existingData.findIndex(row => row[0] === wechatId);
+          if (userIndex !== -1) {
+            const updateRange = `${this.SHEETS.USER}!C${userIndex + 2}`;
+            await this.writeSheet(updateRange, [[openid]]);
+            console.log('已更新用户OpenID');
+          }
+        }
       } else {
-        console.log('User表无需更新');
+        // 添加新用户
+        const newRow = [
+          wechatId,
+          '',  // pinyinName
+          openid
+        ];
+        const insertRange = `${this.SHEETS.USER}!A${(existingData?.length || 0) + 2}`;
+        await this.writeSheet(insertRange, [newRow]);
+        console.log('已添加新用户');
       }
 
       return {
         success: true,
-        totalUsers: allUsers.size,
-        newUsers: newUsersCount,
+        totalUsers: existingUsers.size,
+        newUsers: currentUser ? 0 : 1,
         updatedAt: new Date().toISOString()
       };
 
@@ -1594,9 +1672,320 @@ class SheetsAPI {
       throw err;
     }
   }
+
+  /**
+   * 获取用户数据（优先从缓存获取）
+   */
+  async getUsers() {
+    try {
+      // 1. 检查缓存是否存在且未过期
+      const now = Date.now();
+      if (this.cache.users && this.cache.lastUpdate && 
+          (now - this.cache.lastUpdate < this.CACHE_CONFIG.USERS.EXPIRE_TIME)) {
+        console.log('从缓存获取用户数据');
+        return this.cache.users;
+      }
+
+      // 2. 从本地存储检查
+      const cachedData = wx.getStorageSync(this.CACHE_CONFIG.USERS.KEY);
+      if (cachedData && cachedData.timestamp && 
+          (now - cachedData.timestamp < this.CACHE_CONFIG.USERS.EXPIRE_TIME)) {
+        console.log('从本地存储获取用户数据');
+        this.cache.users = cachedData.data;
+        this.cache.lastUpdate = cachedData.timestamp;
+        return cachedData.data;
+      }
+
+      // 3. 从服务器获取新数据
+      console.log('从服务器获取用户数据');
+      const userRange = `${this.SHEETS.USER}!A2:D`;  // 包含余额列
+      const userData = await this.readSheet(userRange);
+      
+      if (!userData) return [];
+
+      // 4. 处理数据
+      const users = userData.map(row => ({
+        wechatId: row[0] || '',
+        pinyinName: row[1] || '',
+        openid: row[2] || '',
+        balance: parseFloat(row[3] || 0).toFixed(2)
+      })).filter(user => user.wechatId);  // 过滤掉无效数据
+
+      // 5. 更新缓存
+      this.cache.users = users;
+      this.cache.lastUpdate = now;
+
+      // 6. 保存到本地存储
+      wx.setStorageSync(this.CACHE_CONFIG.USERS.KEY, {
+        data: users,
+        timestamp: now
+      });
+
+      return users;
+    } catch (err) {
+      console.error('获取用户数据失败:', err);
+      // 如果有缓存数据，在出错时返回缓存
+      if (this.cache.users) {
+        return this.cache.users;
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * 搜索匹配用户（使用缓存）
+   */
+  async searchUsers(keyword) {
+    try {
+      // 1. 获取所有用户数据（优先使用缓存）
+      const users = await this.getUsers();
+      
+      // 2. 在本地进行搜索
+      const matchedUsers = users.filter(user => 
+        user.wechatId.toLowerCase().includes(keyword.toLowerCase())
+      );
+
+      console.log('搜索结果:', {
+        关键词: keyword,
+        匹配数量: matchedUsers.length,
+        示例: matchedUsers[0]
+      });
+
+      return matchedUsers;
+    } catch (err) {
+      console.error('搜索用户失败:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 清除用户数据缓存
+   */
+  clearUsersCache() {
+    this.cache.users = null;
+    this.cache.lastUpdate = null;
+    wx.removeStorageSync(this.CACHE_CONFIG.USERS.KEY);
+  }
+
+  /**
+   * 强制刷新用户数据
+   */
+  async refreshUsers() {
+    this.clearUsersCache();
+    return await this.getUsers();
+  }
+
+  /**
+   * 更新用户的 OpenID
+   * @param {string} wechatId 用户微信ID
+   * @param {string} openid 用户OpenID
+   */
+  async updateUserOpenId(wechatId, openid) {
+    try {
+      // 1. 从缓存获取用户数据
+      const users = await this.getUsers();
+      
+      // 2. 查找用户索引
+      const userIndex = users.findIndex(user => user.wechatId === wechatId);
+      if (userIndex === -1) {
+        throw new Error('用户不存在');
+      }
+
+      // 3. 更新 OpenID
+      const updateRange = `${this.SHEETS.USER}!C${userIndex + 2}`;  // +2 是因为跳过表头
+      await this.writeSheet(updateRange, [[openid]]);
+
+      // 4. 更新缓存
+      users[userIndex].openid = openid;
+      this.cache.users = users;
+      wx.setStorageSync(this.CACHE_CONFIG.USERS.KEY, {
+        data: users,
+        timestamp: Date.now()
+      });
+
+      console.log('OpenID更新成功:', {
+        wechatId,
+        openid,
+        updateRange
+      });
+
+      return true;
+    } catch (err) {
+      console.error('更新用户OpenID失败:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 创建新用户
+   * @param {Object} userData 用户数据
+   * @param {string} userData.wechatId 微信ID
+   * @param {string} userData.openid OpenID
+   */
+  async createNewUser(userData) {
+    try {
+      // 1. 获取现有用户数据
+      const users = await this.getUsers();
+      
+      // 2. 检查是否已存在
+      if (users.some(user => user.wechatId === userData.wechatId)) {
+        throw new Error('用户已存在');
+      }
+
+      // 3. 添加新用户
+      const newRow = [
+        userData.wechatId,
+        '',  // pinyinName
+        userData.openid,
+        '0.00'  // 初始余额
+      ];
+
+      const insertRange = `${this.SHEETS.USER}!A${users.length + 2}`;  // +2 是因为跳过表头
+      await this.writeSheet(insertRange, [newRow]);
+
+      // 4. 更新缓存
+      const newUser = {
+        wechatId: userData.wechatId,
+        pinyinName: '',
+        openid: userData.openid,
+        balance: '0.00'
+      };
+      
+      users.push(newUser);
+      this.cache.users = users;
+      wx.setStorageSync(this.CACHE_CONFIG.USERS.KEY, {
+        data: users,
+        timestamp: Date.now()
+      });
+
+      console.log('新用户创建成功:', {
+        userData,
+        insertRange
+      });
+
+      return true;
+    } catch (err) {
+      console.error('创建新用户失败:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 查找用户所在行号
+   * @param {string} wechatId 用户微信ID
+   * @returns {Promise<number|null>} 行号（从1开始）或null
+   */
+  async findUserRow(wechatId) {
+    try {
+      // 1. 从缓存获取用户数据
+      const users = await this.getUsers();
+      
+      // 2. 查找用户索引
+      const userIndex = users.findIndex(user => user.wechatId === wechatId);
+      
+      // 3. 返回行号（索引+2，因为要跳过表头）
+      return userIndex > -1 ? userIndex + 2 : null;
+    } catch (err) {
+      console.error('查找用户行号失败:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 加载用户的所有交易记录
+   * @param {string} wechatId 用户微信ID
+   */
+  async loadUserTransactions(wechatId) {
+    try {
+      // 1. 获取用户在Record表中的行号
+      const userRow = await this.findUserRow(wechatId);
+      if (!userRow) {
+        throw new Error('找不到用户记录');
+      }
+
+      // 2. 获取活动日期行（第2行）
+      const dateRange = `${this.SHEETS.RECORD}!${this.SHEET_CONFIG.RECORD.TRANSACTIONS_START}2:${this.SHEET_CONFIG.RECORD.TRANSACTIONS_END}2`;
+      const dateRow = await this.readSheet(dateRange);
+      if (!dateRow || !dateRow[0]) {
+        throw new Error('无法读取日期行');
+      }
+
+      // 3. 获取用户的活动记录行
+      const activityRange = `${this.SHEETS.RECORD}!${this.SHEET_CONFIG.RECORD.TRANSACTIONS_START}${userRow}:${this.SHEET_CONFIG.RECORD.TRANSACTIONS_END}${userRow}`;
+      const activityRow = await this.readSheet(activityRange);
+      
+      // 4. 获取用户的充值记录
+      const depositRange = `${this.SHEETS.DEPOSIT}!A2:D`;
+      const depositData = await this.readSheet(depositRange);
+
+      // 5. 处理活动记录
+      const activities = [];
+      if (activityRow && activityRow[0]) {
+        activityRow[0].forEach((value, index) => {
+          if (value) {
+            const date = dateRow[0][index];
+            if (date) {
+              // 判断是否为报名序号（整数且小于100）
+              const amount = parseFloat(value);
+              if (!Number.isInteger(amount) || amount >= 100 || amount <= 0) {
+                const formattedDate = this.formatDate(date);
+                if (formattedDate) {
+                  activities.push({
+                    type: 'expense',
+                    date: formattedDate,
+                    amount: Math.abs(amount).toFixed(2),
+                    displayTitle: `${formattedDate} - 消费`
+                  });
+                }
+              }
+            }
+          }
+        });
+      }
+
+      // 6. 处理充值记录
+      const deposits = [];
+      if (depositData) {
+        depositData.forEach(row => {
+          if (row[1] === wechatId && row[0]) {  // 确保有日期和匹配的微信ID
+            const formattedDate = this.formatDate(row[0]);
+            if (formattedDate) {
+              deposits.push({
+                type: 'deposit',
+                date: formattedDate,
+                amount: parseFloat(row[2] || 0).toFixed(2),
+                displayTitle: `充值 - ${row[3] === 'Cash' ? '现金充值' : '电子转账'}`
+              });
+            }
+          }
+        });
+      }
+
+      // 7. 合并并按日期排序
+      const allTransactions = [...activities, ...deposits].sort((a, b) => {
+        return new Date(b.date) - new Date(a.date);
+      });
+
+      console.log('交易记录统计:', {
+        总记录: allTransactions.length,
+        活动记录: activities.length,
+        充值记录: deposits.length,
+        示例记录: allTransactions[0]
+      });
+
+      return allTransactions;
+
+    } catch (err) {
+      console.error('加载用户交易记录失败:', err);
+      throw err;
+    }
+  }
 }
 
-// 修改导出方式
+// 创建单例实例
+const sheetsAPI = new SheetsAPI();
+
+// 导出实例
 module.exports = {
-  sheetsAPI: new SheetsAPI()
+  sheetsAPI
 }; 

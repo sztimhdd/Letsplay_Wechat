@@ -1,0 +1,39 @@
+<view class="container">
+  <view class="header">
+    <text class="title">绑定用户信息</text>
+    <text class="subtitle">请输入您的微信号以匹配已有用户</text>
+  </view>
+
+  <view class="input-section">
+    <input 
+      class="wechat-input"
+      type="text"
+      placeholder="请输入微信号"
+      value="{{wechatId}}"
+      bindinput="handleInput"
+    />
+  </view>
+
+  <view class="suggested-users" wx:if="{{suggestedUsers.length > 0}}">
+    <text class="section-title">找到以下匹配用户：</text>
+    <view 
+      class="user-item"
+      wx:for="{{suggestedUsers}}"
+      wx:key="wechatId"
+      data-user="{{item}}"
+      bindtap="selectUser"
+    >
+      <text class="user-name">{{item.wechatId}}</text>
+      <text class="user-info">余额: ¥{{item.balance}}</text>
+    </view>
+  </view>
+
+  <view class="no-match" wx:elif="{{!isSearching && wechatId}}">
+    <text>未找到匹配用户</text>
+    <button 
+      class="create-btn"
+      type="primary"
+      bindtap="createNewUser"
+    >创建新用户</button>
+  </view>
+</view> 

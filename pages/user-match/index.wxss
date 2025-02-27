@@ -1,0 +1,74 @@
+/* pages/user-match/index.wxss */
+.container {
+  padding: 30rpx;
+}
+
+.header {
+  margin-bottom: 40rpx;
+  text-align: center;
+}
+
+.title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 20rpx;
+}
+
+.subtitle {
+  font-size: 28rpx;
+  color: #666;
+  display: block;
+}
+
+.input-section {
+  margin-bottom: 40rpx;
+}
+
+.wechat-input {
+  border: 2rpx solid #ddd;
+  border-radius: 8rpx;
+  padding: 20rpx;
+  font-size: 28rpx;
+}
+
+.suggested-users {
+  margin-top: 40rpx;
+}
+
+.section-title {
+  font-size: 28rpx;
+  color: #666;
+  margin-bottom: 20rpx;
+  display: block;
+}
+
+.user-item {
+  background: #fff;
+  padding: 20rpx;
+  margin-bottom: 20rpx;
+  border-radius: 8rpx;
+  box-shadow: 0 2rpx 4rpx rgba(0,0,0,0.1);
+}
+
+.user-name {
+  font-size: 32rpx;
+  color: #333;
+  display: block;
+  margin-bottom: 10rpx;
+}
+
+.user-info {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.no-match {
+  text-align: center;
+  margin-top: 40rpx;
+}
+
+.create-btn {
+  margin-top: 30rpx;
+}

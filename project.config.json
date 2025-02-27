@@ -7,15 +7,15 @@
         "include": []
     },
     "setting": {
-        "urlCheck": false,
+        "urlCheck": true,
         "es6": true,
-        "enhance": false,
+        "enhance": true,
         "postcss": true,
         "preloadBackgroundData": false,
         "minified": true,
-        "newFeature": false,
+        "newFeature": true,
         "coverView": true,
-        "nodeModules": false,
+        "nodeModules": true,
         "autoAudits": false,
         "showShadowRootInWxmlPanel": true,
         "scopeDataCheck": false,
@@ -56,7 +56,6 @@
         "pages/my-activities/index",
         "pages/balance-manage/index"
     ],
-    "miniprogramRoot": "",
-    "cloudfunctionRoot": "",
-    "cloudfunctionTemplateRoot": ""
+    "cloudfunctionRoot": "cloudfunctions/",
+    "cloudfunctionTemplateRoot": "cloudfunctionTemplate/"
 }

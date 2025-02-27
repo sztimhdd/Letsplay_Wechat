@@ -53,46 +53,47 @@ Page({
     this.setData({ isLoading: true });
     
     try {
-      const loginResult = await loginService.login();
-      
-      if (loginResult.success) {
-        console.log('登录成功，使用默认用户信息');
+        const loginResult = await loginService.login();
         
-        // 新增用户表更新
-        try {
-          await sheetsAPI.updateUserTable();
-          console.log('用户表更新成功');
-        } catch (err) {
-          console.error('用户表更新失败:', err);
-          // 这里可以添加失败处理逻辑，但不需要阻止登录流程
+        if (loginResult.success) {
+            if (loginResult.needMatch) {
+                // 如果需要匹配用户，登录页面不做任何处理
+                // 因为 login-service 已经处理了跳转
+                console.log('需要进行用户匹配');
+                this.setData({ isLoading: false });
+                return;
+            }
+            
+            console.log('登录成功，使用默认用户信息');
+            
+            // 更新用户表
+            try {
+                await sheetsAPI.updateUserTable();
+                console.log('用户表更新成功');
+            } catch (err) {
+                console.error('用户表更新失败:', err);
+            }
+            
+            // 设置全局用户信息
+            const app = getApp();
+            app.globalData.userInfo = DEFAULT_USER;
+            app.globalData.hasLogin = true;
+            
+            this.navigateToIndex();
+        } else {
+            wx.showToast({
+                title: loginResult.error || '登录失败，请重试',
+                icon: 'none'
+            });
+            this.setData({ isLoading: false });
         }
-
-        wx.setStorageSync('userInfo', DEFAULT_USER);
-        this.setData({
-          isLoggedIn: true,
-          userInfo: DEFAULT_USER,
-          loginStep: 'complete',
-          isLoading: false
-        });
-        
-        app.globalData.userInfo = DEFAULT_USER;
-        app.globalData.hasLogin = true;
-        
-        this.navigateToIndex();
-      } else {
+    } catch (err) {
+        console.error('登录过程发生错误:', err);
         wx.showToast({
-          title: '登录失败，请重试',
-          icon: 'none'
+            title: '登录失败，请重试',
+            icon: 'none'
         });
         this.setData({ isLoading: false });
-      }
-    } catch (err) {
-      console.error('登录过程发生错误:', err);
-      wx.showToast({
-        title: '登录失败，请重试',
-        icon: 'none'
-      });
-      this.setData({ isLoading: false });
     }
   },
 
