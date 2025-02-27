@@ -21,7 +21,8 @@ class SheetsAPI {
     this.SHEETS = {
       RECORD: 'Record',           // 修改为实际的表名
       DEPOSIT: 'Deposit Record',  // 修改为实际的表名
-      FEECALCU: 'Feecalcu'       // 修改为实际的表名
+      FEECALCU: 'Feecalcu',      // 修改为实际的表名
+      USER: 'Users'               // 添加User表
     };
     
     // 价格表配置
@@ -1469,7 +1470,133 @@ class SheetsAPI {
       throw err;
     }
   }
+
+  /**
+   * 智能更新User表数据
+   */
+  async updateUserTable() {
+    try {
+      console.log('开始更新User表...');
+      
+      // 1. 获取现有User表数据
+      const userRange = `${this.SHEETS.USER}!A2:C`; // 从第2行开始，跳过表头
+      const existingUserData = await this.readSheet(userRange);
+      const existingUsers = new Map();
+      
+      if (existingUserData && existingUserData.length > 0) {
+        existingUserData.forEach(row => {
+          if (row[0]) { // 如果有微信ID
+            existingUsers.set(row[0], {
+              wechatId: row[0],
+              pinyinName: row[1],
+              openId: row[2] || ''
+            });
+          }
+        });
+      }
+      console.log(`当前User表中有 ${existingUsers.size} 个用户`);
+
+      // 2. 从Record表获取用户数据（A、B列，从第9行开始）
+      const recordRange = `${this.SHEETS.RECORD}!A9:B`;
+      const recordData = await this.readSheet(recordRange);
+      
+      // 3. 从Deposit Record表获取用户数据（B列用户名）
+      const depositRange = `${this.SHEETS.DEPOSIT}!B2:B`;
+      const depositData = await this.readSheet(depositRange);
+
+      // 4. 合并所有来源的用户数据
+      const allUsers = new Map(existingUsers);
+      
+      // 处理Record表数据
+      if (recordData && recordData.length > 0) {
+        recordData
+          .filter(row => row[0] && row[1]) // 确保名字和微信ID都存在
+          .forEach(row => {
+            const wechatId = row[1];
+            if (!allUsers.has(wechatId)) {
+              allUsers.set(wechatId, {
+                wechatId: wechatId,
+                pinyinName: row[0],
+                openId: ''
+              });
+            }
+          });
+      }
+
+      // 处理Deposit表数据
+      if (depositData && depositData.length > 0) {
+        depositData
+          .filter(row => row[0]) // 确保微信ID存在
+          .forEach(row => {
+            const wechatId = row[0];
+            if (!allUsers.has(wechatId)) {
+              allUsers.set(wechatId, {
+                wechatId: wechatId,
+                pinyinName: '', // 从Deposit表中只能获取微信ID
+                openId: ''
+              });
+            }
+          });
+      }
+
+      // 5. 检查是否有新用户添加
+      const newUsersCount = allUsers.size - existingUsers.size;
+      console.log(`发现 ${newUsersCount} 个新用户`);
+
+      // 6. 如果有更新，写入完整的User表
+      if (newUsersCount > 0) {
+        const userTableData = [
+          ['Wechat ID', 'Pinyin Name', 'OpenID'], // 表头
+          ...Array.from(allUsers.values()).map(user => [
+            user.wechatId,
+            user.pinyinName,
+            user.openId
+          ])
+        ];
+
+        // 写入完整数据
+        const fullRange = `${this.SHEETS.USER}!A1:C${allUsers.size + 1}`;
+        await this.writeSheet(fullRange, userTableData);
+        console.log('User表更新完成');
+      } else {
+        console.log('User表无需更新');
+      }
+
+      return {
+        success: true,
+        totalUsers: allUsers.size,
+        newUsers: newUsersCount,
+        updatedAt: new Date().toISOString()
+      };
+
+    } catch (err) {
+      console.error('更新User表失败:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 测试User表更新
+   */
+  async testUpdateUserTable() {
+    try {
+      // 1. 测试连接
+      await this.testConnection();
+      console.log('连接测试成功');
+
+      // 2. 更新User表
+      const result = await this.updateUserTable();
+      console.log('更新结果:', result);
+
+      return result;
+    } catch (err) {
+      console.error('测试失败:', err);
+      throw err;
+    }
+  }
 }
 
-// 导出单例实例
-export const sheetsAPI = new SheetsAPI(); 
+// 修改导出方式
+module.exports = {
+  sheetsAPI: new SheetsAPI()
+}; 

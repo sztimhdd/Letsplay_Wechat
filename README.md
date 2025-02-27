@@ -5,14 +5,14 @@
 - 活动创建与管理
 - 参与者报名与签到
 - 费用AA制结算
-- 用户余额管理
+- 余额查询
 - 活动历史记录
 
 ## 主要功能模块
 
 ### 1. 用户角色
 - 场次管理员：可创建活动、管理报名、处理签到和结算
-- 普通球友：可报名活动、查看活动、管理个人信息
+- 普通球友：可报名活动、查看活动、查看个人余额和消费记录
 
 ### 2. 活动管理
 - 创建新活动（管理员）
@@ -35,7 +35,11 @@
 - 自动计算AA制费用
 - 更新参与者余额
 - 生成结算记录
-- 支持余额充值
+
+### 6. 余额查询
+- 查看个人余额
+- 查看年度消费记录
+- 余额充值（仅限管理员通过Google Sheets Web端操作）
 
 ## 技术架构
 - 前端：微信小程序原生框架
@@ -81,6 +85,18 @@
   * E列：人均费用
   * F列：结算状态
 
+### 4. User表（用户信息表）
+- 位置：第四个工作表
+- 用途：存储用户微信OpenID与微信名称的对应关系
+- 结构说明：
+  * A列：Wechat ID（微信名称）
+  * B列：Pinyin Name（用户姓名拼音）
+  * C列：OpenID（微信OpenID）
+- 数据更新机制：
+  * 自动从Record表和Deposit Record表收集用户信息
+  * 保持与其他表格的用户数据同步
+  * 支持增量更新，避免重复数据
+
 ## 数据写入规则
 
 ### 1. 创建新活动
@@ -104,20 +120,13 @@
   });
   ```
 
-### 2. 更新用户余额
-- 目标：Record表
-- 操作：更新D列对应用户行
-- 写入规则：
-  ```javascript
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: SHEET_ID,
-    range: \`Record!D\${userRowIndex}\`,
-    valueInputOption: 'USER_ENTERED',
-    resource: {
-      values: [[newBalance]]
-    }
-  });
-  ```
+### 2. 余额管理（仅限Google Sheets Web端）
+- 管理员通过Google Sheets Web界面直接操作
+- 更新Record表D列（余额）和Deposit Record表
+- 确保同步更新以下数据：
+  * Record表中的用户余额
+  * Deposit Record表中的充值记录
+  * 用户年度消费统计
 
 ### 3. 记录活动参与
 - 目标：Record表
@@ -132,6 +141,35 @@
       values: [[perPersonFee]]
     }
   });
+  ```
+
+### 4. User表更新规则
+- 触发时机：
+  * 系统定期自动更新
+  * 管理员手动触发更新
+- 更新流程：
+  1. 从Record表获取用户基本信息（姓名、微信ID）
+  2. 从Deposit Record表获取用户充值记录
+  3. 合并所有来源的用户数据
+  4. 增量更新User表，保留已有的OpenID绑定
+  5. 对新增用户初始化OpenID为空值
+- 写入示例：
+  ```javascript
+  // User表更新示例
+  async function updateUserTable() {
+    // 1. 读取现有User表数据
+    const existingUsers = await sheetsAPI.readSheet('User!A2:C');
+    
+    // 2. 收集所有用户数据
+    const recordUsers = await sheetsAPI.readSheet('Record!A9:B');
+    const depositUsers = await sheetsAPI.readSheet('Deposit Record!B2:B');
+    
+    // 3. 合并用户数据并更新
+    const mergedUsers = mergeUserData(existingUsers, recordUsers, depositUsers);
+    
+    // 4. 写入更新后的数据
+    await sheetsAPI.writeSheet('User!A2:C', mergedUsers);
+  }
   ```
 
 ## 页面说明
@@ -152,10 +190,10 @@
 - 活动历史
 - 个人信息管理
 
-### 4. 管理员页面（/pages/admin/index）
-- 活动管理
-- 用户余额管理
-- 系统设置
+### 4. 余额查询页（/pages/balance-manage/index）
+- 只读显示用户余额
+- 显示年度消费记录
+- 支持下拉刷新更新数据
 
 ## 开发环境要求
 - 微信开发者工具最新版
@@ -169,7 +207,7 @@
 │   ├── index/            # 首页
 │   ├── activity/         # 活动相关页面
 │   ├── user/            # 用户中心
-│   └── admin/           # 管理员页面
+│   └── balance-manage/  # 余额查询页面
 ├── components/          # 公共组件
 ├── utils/              # 工具函数
 │   ├── sheets.ts       # Google Sheets操作
@@ -185,6 +223,7 @@
 2. 管理员密码使用加密存储
 3. 用户数据访问权限控制
 4. 关键操作需二次确认
+5. OpenID信息加密存储，确保用户隐私安全
 
 ## 注意事项
 1. 所有金额计算保留两位小数
@@ -192,12 +231,17 @@
 3. 定期备份Google Sheets数据
 4. 确保网络请求超时处理
 5. 活动状态变更实时更新
+6. 余额管理必须通过Google Sheets Web端进行操作
+7. User表定期自动同步，确保用户数据一致性
+8. 手动修改用户信息后需及时更新User表
 
 ## 版本历史
 - v1.0.0 初始版本：基本功能实现
 - v1.1.0 增加Google Sheets集成
 - v1.2.0 优化用户体验
 - v1.3.0 添加管理员功能
+- v1.4.0 移除小程序余额管理功能，改为Web端管理
+- v1.5.0 新增User表及用户数据同步机制
 
 ## API接口说明
 

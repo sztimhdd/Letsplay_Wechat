@@ -1,21 +1,21 @@
 <!--pages/balance-manage/index.wxml-->
-<view class="user-list">
-    <view wx:for="{{users}}" 
-          wx:key="wechat" 
-          class="user-item"
-          bindtap="onUserTap"
-          data-index="{{index}}">
-        <view class="user-info">
-            <text class="name">{{item.name}}</text>
-            <text class="wechat">{{item.wechat}}</text>
-        </view>
-        <view class="balance">
-            <text class="label">余额</text>
-            <text class="value">¥{{item.balance}}</text>
-        </view>
-        <view class="spent">
-            <text class="label">年度消费</text>
-            <text class="value">¥{{item.ytdSpent}}</text>
+<view class="container">
+    <view class="user-list">
+        <view wx:for="{{users}}" 
+              wx:key="wechat" 
+              class="user-item">
+            <view class="user-info">
+                <text class="name">{{item.name}}</text>
+                <text class="wechat">{{item.wechat}}</text>
+            </view>
+            <view class="balance">
+                <text class="label">余额</text>
+                <text class="value">¥{{item.balance}}</text>
+            </view>
+            <view class="spent">
+                <text class="label">年度消费</text>
+                <text class="value">¥{{item.ytdSpent}}</text>
+            </view>
         </view>
     </view>
 </view>

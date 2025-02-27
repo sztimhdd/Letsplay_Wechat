@@ -49,8 +49,9 @@ Page({
     /**
      * 页面相关事件处理函数--监听用户下拉动作
      */
-    onPullDownRefresh() {
-
+    async onPullDownRefresh() {
+        await this.loadUsers();
+        wx.stopPullDownRefresh();
     },
 
     /**
@@ -85,8 +86,7 @@ Page({
                 name: name[0],
                 wechat: wechats[index][0],
                 balance: parseFloat(balances[index][0] || 0).toFixed(2),
-                ytdSpent: parseFloat(ytdSpent[index][0] || 0).toFixed(2),
-                rowIndex: index + 9
+                ytdSpent: parseFloat(ytdSpent[index][0] || 0).toFixed(2)
             })).filter(user => !!user.name);
 
             this.setData({ users, loading: false });

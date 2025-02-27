@@ -1,5 +1,6 @@
 const app = getApp();
 const loginService = require('../../utils/login-service');
+const { sheetsAPI } = require('../../utils/sheets-api');
 
 // 定义默认用户信息
 const DEFAULT_USER = {
@@ -52,13 +53,20 @@ Page({
     this.setData({ isLoading: true });
     
     try {
-      // 执行登录流程
       const loginResult = await loginService.login();
       
       if (loginResult.success) {
         console.log('登录成功，使用默认用户信息');
         
-        // 直接设置默认用户信息，不再授权获取
+        // 新增用户表更新
+        try {
+          await sheetsAPI.updateUserTable();
+          console.log('用户表更新成功');
+        } catch (err) {
+          console.error('用户表更新失败:', err);
+          // 这里可以添加失败处理逻辑，但不需要阻止登录流程
+        }
+
         wx.setStorageSync('userInfo', DEFAULT_USER);
         this.setData({
           isLoggedIn: true,
