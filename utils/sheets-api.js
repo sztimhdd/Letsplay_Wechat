@@ -16,7 +16,7 @@ const SCOPES = 'https://www.googleapis.com/auth/spreadsheets';
  */
 class SheetsAPI {
   constructor() {
-    this.isInitialized = false;
+    this.initialized = false;
     this.accessToken = null;
     this.SHEETS = {
       USER: 'Users',
@@ -559,22 +559,33 @@ class SheetsAPI {
    */
   async getUserBalance(wechatId) {
     try {
-      const config = this.SHEET_CONFIG.RECORD;
-      const range = `${this.SHEETS.RECORD}!${config.FIXED_COLUMNS.NAME}${config.DATA_START_ROW}:${config.FIXED_COLUMNS.BALANCE}`;
+      // 1. 确保已初始化
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      // 2. 读取Record表数据
+      const range = `${this.SHEETS.RECORD}!A:D`;  // A=姓名, B=微信ID, C=押金, D=余额
       const data = await this.readSheet(range);
       
-      if (!data || data.length === 0) return '0.00';
-      
-      // 从后往前查找该用户的最新余额记录
-      for (let i = data.length - 1; i >= 0; i--) {
-        const row = data[i];
-        // 检查是否是目标用户且有余额数据
-        if (row[1] === wechatId && row[3]) {  // B列是微信ID，D列是余额
-          return parseFloat(row[3]).toFixed(2);
-        }
+      console.log('查询用户余额:', {
+        wechatId,
+        range,
+        rowsCount: data?.length
+      });
+
+      // 3. 查找用户行
+      const userRow = data?.find(row => row[1] === wechatId);
+      if (!userRow) {
+        console.log('未找到用户余额记录');
+        return '0.00';
       }
-      
-      return '0.00';
+
+      // 4. 返回余额
+      const balance = userRow[3] || '0.00';
+      console.log('用户余额:', balance);
+      return balance;
+
     } catch (err) {
       console.error('获取用户余额失败:', err);
       return '0.00';
@@ -582,48 +593,116 @@ class SheetsAPI {
   }
 
   /**
+   * 获取用户年度消费
+   * @param {string} wechatId - 用户微信ID
+   * @returns {Promise<string>} - 年度消费
+   */
+  async getUserYTDSpent(wechatId) {
+    try {
+      // 1. 确保已初始化
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      // 2. 读取Record表数据
+      const range = `${this.SHEETS.RECORD}!A:E`;  // A=姓名, B=微信ID, E=年度消费
+      const data = await this.readSheet(range);
+      
+      console.log('查询年度消费:', {
+        wechatId,
+        range,
+        rowsCount: data?.length
+      });
+
+      // 3. 查找用户行
+      const userRow = data?.find(row => row[1] === wechatId);
+      if (!userRow) {
+        console.log('未找到用户消费记录');
+        return '0.00';
+      }
+
+      // 4. 返回年度消费
+      const ytdSpent = userRow[4] || '0.00';
+      console.log('年度消费:', ytdSpent);
+      return ytdSpent;
+
+    } catch (err) {
+      console.error('获取年度消费失败:', err);
+      return '0.00';
+    }
+  }
+
+  /**
+   * 获取用户交易记录
+   * @param {string} wechatId - 用户微信ID
+   * @returns {Promise<Array>} - 交易记录列表
+   */
+  async getUserTransactions(wechatId) {
+    try {
+      // 1. 获取所有数据
+      const sheetData = await this.loadAllSheetData();
+      const transactions = [];
+
+      // 2. 处理活动消费记录
+      if (sheetData.record?.activities) {
+        const userActivities = sheetData.record.activities.filter(
+          a => a.participants?.some(p => p.wechatId === wechatId)
+        );
+        transactions.push(...userActivities.map(a => ({
+          type: 'expense',
+          date: a.date,
+          amount: a.perPersonFee,
+          displayTitle: `${a.venue} ${a.timeSlot}`
+        })));
+      }
+
+      // 3. 处理充值记录
+      if (sheetData.deposits) {
+        const userDeposits = sheetData.deposits.filter(
+          d => d.wechatId === wechatId
+        );
+        transactions.push(...userDeposits.map(d => ({
+          type: 'deposit',
+          date: d.date,
+          amount: d.amount,
+          displayTitle: `充值 - ${d.method === 'Cash' ? '现金' : '电子转账'}`
+        })));
+      }
+
+      // 4. 按日期排序
+      transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+      
+      console.log('用户交易记录:', {
+        total: transactions.length,
+        sample: transactions.slice(0, 3)
+      });
+
+      return transactions;
+
+    } catch (err) {
+      console.error('获取交易记录失败:', err);
+      return [];
+    }
+  }
+
+  /**
    * 初始化 Google API
    */
   async initialize() {
-    if (this.isInitialized) return true;
-    
+    if (this.initialized) return;
+
     try {
-      await this.getAccessToken();
-      
-      // 获取实际的表信息
-      const sheetInfo = await this.getSpreadsheetInfo();
-      console.log('获取到的表信息:', sheetInfo);
-      
-      // 根据表名匹配正确的映射
-      const findSheet = (namePatterns) => {
-        for (const pattern of namePatterns) {
-          const sheet = sheetInfo.find(sheet => 
-            sheet.title.toLowerCase().includes(pattern.toLowerCase())
-          );
-          if (sheet) return sheet.title;
-        }
-        return '';
-      };
-      
-      console.log('使用的表名:', this.SHEETS);
-      
-      // 验证所有表是否都找到
-      for (const [key, value] of Object.entries(this.SHEETS)) {
-        if (!value) {
-          // 输出更详细的错误信息
-          console.error('表名匹配失败:', {
-            key,
-            availableSheets: sheetInfo.map(s => s.title),
-            currentMapping: this.SHEETS
-          });
-          throw new Error(`找不到表: ${key}`);
-        }
+      // 初始化云环境
+      if (!wx.cloud) {
+        throw new Error('请使用 2.2.3 或以上的基础库以使用云能力');
       }
-      
-      this.isInitialized = true;
-      return true;
+
+      // 初始化成功标记
+      this.initialized = true;
+      console.log('SheetsAPI 初始化成功');
+
     } catch (err) {
-      console.error('初始化失败:', err);
+      console.error('SheetsAPI 初始化失败:', err);
       throw err;
     }
   }
@@ -2040,14 +2119,42 @@ class SheetsAPI {
    */
   async findUserByOpenId(openid) {
     try {
-      console.log('开始查找用户, OpenID:', openid);
-      const users = await this.getUsers();
-      const user = users.find(user => user.openid === openid);
-      console.log('查找结果:', user);
-      return user || null;
+      // 1. 确保已初始化
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      // 2. 读取Users表数据
+      const range = `${this.SHEETS.USER}!A2:C`;  // A=WechatID, B=PinyinName, C=OpenID
+      const users = await this.readSheet(range);
+      
+      console.log('查询Users表:', {
+        range,
+        usersCount: users?.length,
+        targetOpenId: openid
+      });
+
+      // 3. 查找匹配的用户
+      const userRow = users?.find(row => row[2] === openid);
+      if (!userRow) {
+        console.log('未找到用户记录');
+        return null;
+      }
+
+      // 4. 返回用户信息
+      const userInfo = {
+        wechatId: userRow[0],
+        pinyinName: userRow[1] || '',
+        openid: userRow[2],
+        balance: '0.00'  // 默认余额
+      };
+
+      console.log('找到用户:', userInfo);
+      return userInfo;
+
     } catch (err) {
       console.error('查找用户失败:', err);
-      throw err;
+      return null;
     }
   }
 
@@ -2099,50 +2206,36 @@ class SheetsAPI {
    */
   async createNewUser(userData) {
     try {
-      if (!userData || !userData.wechatId || !userData.openid) {
-        throw new Error('无效的用户数据');
+      // 1. 确保已初始化
+      if (!this.initialized) {
+        await this.initialize();
       }
 
-      console.log('开始创建新用户:', userData);
-
-      // 1. 获取Users表的最后一行
+      // 2. 获取最后一行
       const range = `${this.SHEETS.USER}!A:C`;
-      const existingData = await this.readSheet(range);
-      const lastRow = existingData ? existingData.length + 1 : 2; // 如果没有数据，从第2行开始
+      const users = await this.readSheet(range);
+      const lastRow = users ? users.length + 2 : 2;  // 表头在第1行
 
-      // 2. 准备新用户数据
-      const newUserData = [
-        userData.wechatId,           // A列：微信名称
-        userData.pinyinName || '',   // B列：拼音名称（可选）
-        userData.openid             // C列：OpenID
+      // 3. 准备用户数据
+      const newUserRow = [
+        userData.wechatId,
+        userData.pinyinName || '',
+        userData.openid
       ];
 
-      // 3. 写入新用户数据
-      const updateRange = `${this.SHEETS.USER}!A${lastRow}:C${lastRow}`;
-      await this.writeSheet(updateRange, [newUserData]);
+      // 4. 写入新用户数据
+      const writeRange = `${this.SHEETS.USER}!A${lastRow}:C${lastRow}`;
+      await this.writeSheet(writeRange, [newUserRow]);
 
-      // 4. 清除缓存，强制重新加载
-      this.cache = {
-        lastUpdate: null,
-        sheetData: null,
-        users: null,
-        activities: null,
-        deposits: null
-      };
+      console.log('新用户创建成功:', {
+        row: lastRow,
+        data: newUserRow
+      });
 
-      // 5. 返回创建的用户数据
-      const createdUser = {
-        wechatId: userData.wechatId,
-        pinyinName: userData.pinyinName || '',
-        openid: userData.openid,
-        balance: '0.00'
-      };
-
-      console.log('新用户创建成功:', createdUser);
-      return createdUser;
+      return userData;
 
     } catch (err) {
-      console.error('创建新用户失败:', err);
+      console.error('创建用户失败:', err);
       throw err;
     }
   }
@@ -2191,10 +2284,6 @@ class SheetsAPI {
   }
 }
 
-// 创建单例实例
+// 创建并导出单例
 const sheetsAPI = new SheetsAPI();
-
-// 导出实例
-module.exports = {
-  sheetsAPI
-}; 
+module.exports = sheetsAPI; 

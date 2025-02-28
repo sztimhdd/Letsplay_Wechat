@@ -1,9 +1,8 @@
 // app.js
-import { sheetsAPI } from './utils/sheets-api';
+const sheetsAPI = require('./utils/sheets-api');
+const loginService = require('./utils/login-service');
 import { testUserActivityDetails } from './utils/test-sheets';
 import { TEST_USER } from './utils/test-data';
-// 导入登录服务
-const loginService = require('./utils/login-service');
 
 App({
     globalData: {
@@ -16,28 +15,29 @@ App({
     },
 
     async onLaunch() {
-        if (!wx.cloud) {
-            console.error('请使用 2.2.3 或以上的基础库以使用云能力')
-        } else {
-            wx.cloud.init({
-                env: wx.cloud.DYNAMIC_CURRENT_ENV, // 使用默认环境配置
-                traceUser: true,
-            })
-        }
         try {
+            // 初始化云开发
+            wx.cloud.init({
+                env: 'prod', // 替换为你的云开发环境ID
+                traceUser: true,
+            });
+            if (!wx.cloud) {
+                console.error('请使用 2.2.3 或以上的基础库以使用云能力')
+            } else {
+                wx.cloud.init({
+                    env: wx.cloud.DYNAMIC_CURRENT_ENV, // 使用默认环境配置
+                    traceUser: true,
+                })
+            }
+
             // 初始化 sheetsAPI
-            const sheetsAPI = await this.getSheetsAPI();
+            await sheetsAPI.initialize();
+            this.globalData.sheetsAPI = sheetsAPI;
             console.log('sheetsAPI 初始化成功');
 
-            // 加载所有活动数据
+            // 加载活动数据
             console.log('开始加载所有活动数据...');
-            let activities = await sheetsAPI.getActivities(200);
-            if (!activities.length) {
-                // 如果没有活动数据，则使用测试活动数据
-                // const { testUserActivityDetails } = require('./utils/test-sheets');
-                // activities = await testUserActivityDetails();
-                // console.log('使用测试活动数据:', activities.length);
-            }
+            const activities = await sheetsAPI.getActivities(200);
             this.globalData.activities = activities;
             this.globalData.activitiesLoaded = true;
             console.log('活动数据加载完成:', activities.length);
@@ -131,24 +131,17 @@ App({
 
     // 获取当前用户信息
     async getCurrentUser() {
-        if (this.globalData.currentUser) {
-            return this.globalData.currentUser;
-        }
-
-        if (this.globalData.hasLogin) {
-            try {
-                const userInfo = loginService.getUserInfo();
-                if (userInfo) {
-                    this.globalData.currentUser = userInfo;
-                    return userInfo;
-                }
-                return null;
-            } catch (err) {
-                console.error('获取用户信息失败:', err);
-                return null;
+        try {
+            const userInfo = loginService.getUserInfo();
+            if (!userInfo) {
+                throw new Error('未找到用户信息');
             }
-        } else {
-            console.log('用户未登录，无法获取用户信息');
+
+            this.globalData.currentUser = userInfo;
+            return userInfo;
+
+        } catch (err) {
+            console.error('获取当前用户失败:', err);
             return null;
         }
     },
@@ -159,13 +152,7 @@ App({
             if (!this.globalData.sheetsAPI) {
                 await sheetsAPI.initialize();
                 this.globalData.sheetsAPI = sheetsAPI;
-                console.log('sheetsAPI 初始化完成');
             }
-            
-            if (!this.globalData.sheetsAPI) {
-                throw new Error('sheetsAPI 初始化失败');
-            }
-
             return this.globalData.sheetsAPI;
         } catch (err) {
             console.error('获取 sheetsAPI 失败:', err);

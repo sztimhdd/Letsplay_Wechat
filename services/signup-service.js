@@ -1,4 +1,5 @@
 const app = getApp();
+const { userService } = require('./user-service');
 
 class SignUpService {
   // 获取用户在表格中的行号
@@ -124,79 +125,47 @@ class SignUpService {
   // 处理报名逻辑
   async signUp(activityColumn) {
     try {
-      const sheetsAPI = app.globalData.sheetsAPI;
-      console.log('检查 sheetsAPI:', {
-        hasGlobalData: !!app.globalData,
-        hasSheets: !!sheetsAPI,
-        sheetsAPIFunctions: Object.keys(sheetsAPI || {})
-      });
-
       // 1. 获取当前用户
       const currentUser = await app.getCurrentUser();
-      console.log('当前用户:', currentUser);
-
       if (!currentUser) {
         throw new Error('请先登录');
       }
 
-      // 2. 获取用户行号
-      const userRow = await this.getUserRow(currentUser.wechat);
-      console.log('获取到用户行号:', userRow);
-
-      if (!userRow) {
+      // 2. 获取用户信息
+      const user = await userService.findUserByWechat(currentUser.wechat);
+      if (!user) {
         throw new Error('找不到用户信息');
       }
 
-      // 3. 处理活动列标识
-      const column = this.formatColumnRange(activityColumn);
-      console.log('处理后的列范围:', column);
-
-      // 4. 获取活动信息和参与者
-      const [activityInfo, participants] = await Promise.all([
-        sheetsAPI.getActivitySignUpInfo(column),
-        this.getActivityParticipants(activityColumn)
-      ]);
-
-      if (!activityInfo.totalFee) {
-        throw new Error('活动费用信息不完整');
-      }
-
-      // 5. 计算人均费用
-      const perPersonFee = (activityInfo.totalFee / (participants.length + 1)).toFixed(2);
-      console.log('费用计算:', {
-        totalFee: activityInfo.totalFee,
-        currentSignUps: participants.length,
-        perPersonFee
-      });
-
-      // 6. 显示确认对话框
-      const confirmResult = await new Promise((resolve) => {
-        wx.showModal({
-          title: '确认报名',
-          content: `报名后每人需支付 ¥${perPersonFee}，是否确认报名？`,
-          success: resolve
-        });
-      });
-
-      if (!confirmResult.confirm) {
-        return { success: false, cancelled: true };
-      }
-
-      // 7. 执行报名
-      const result = await sheetsAPI.signUpActivity(activityColumn, userRow);
-      
-      // 8. 更新本地活动数据
-      const activities = wx.getStorageSync('activities') || [];
-      const activityIndex = activities.findIndex(a => a.column === activityColumn);
-      if (activityIndex !== -1) {
-        activities[activityIndex].participants = await this.getActivityParticipants(activityColumn);
-        wx.setStorageSync('activities', activities);
-      }
-
-      return { success: true, ...result };
+      // 3. 执行报名
+      return this.handleSignUp(activityColumn, user.rowIndex);
 
     } catch (err) {
       console.error('报名失败:', err);
+      throw err;
+    }
+  }
+
+  // 处理取消报名
+  async cancelSignUp(activityColumn) {
+    try {
+      // 1. 获取当前用户
+      const currentUser = await app.getCurrentUser();
+      if (!currentUser) {
+        throw new Error('请先登录');
+      }
+
+      // 2. 获取用户信息
+      const user = await userService.findUserByWechat(currentUser.wechat);
+      if (!user) {
+        throw new Error('找不到用户信息');
+      }
+
+      // 3. 执行取消报名
+      return this.handleCancelSignUp(activityColumn, user.rowIndex);
+
+    } catch (err) {
+      console.error('取消报名失败:', err);
       throw err;
     }
   }
@@ -271,83 +240,6 @@ class SignUpService {
 
     } catch (err) {
       console.error('报名活动失败:', err);
-      throw err;
-    }
-  }
-
-  /**
-   * 取消报名
-   * @param {string} columnRange 活动列范围
-   * @param {number} userRow 用户行号
-   */
-  async cancelSignUp(columnRange, userRow) {
-    try {
-      // 获取列字母
-      const columnLetter = columnRange.match(/^([A-Za-z]+)/)[1];
-      
-      // 清空用户的报名数据
-      await this.updateCell(`Record!${columnLetter}${userRow}`, '');
-
-      return {
-        success: true
-      };
-
-    } catch (err) {
-      console.error('取消报名失败:', err);
-      throw err;
-    }
-  }
-
-  // 处理取消报名逻辑
-  async cancelSignUp(activityColumn) {
-    try {
-      const sheetsAPI = app.globalData.sheetsAPI;
-      if (!sheetsAPI) {
-        throw new Error('sheetsAPI 未初始化');
-      }
-      
-      // 1. 获取当前用户
-      const currentUser = await app.getCurrentUser();
-      if (!currentUser) {
-        throw new Error('请先登录');
-      }
-
-      // 2. 获取用户行号
-      const userRow = await this.getUserRow(currentUser.wechat);
-      if (!userRow) {
-        throw new Error('找不到用户信息');
-      }
-
-      // 3. 处理活动列标识
-      const match = activityColumn.match(/^([A-Za-z]+)/);
-      if (!match) {
-        throw new Error('无效的列标识');
-      }
-      const columnLetter = match[1];
-
-      console.log('取消报名:', {
-        activityColumn,
-        columnLetter,
-        userRow,
-        sheetsAPI: !!sheetsAPI
-      });
-
-      // 4. 清空用户的报名数据
-      await sheetsAPI.updateCell(`Record!${columnLetter}${userRow}`, '');
-
-      // 5. 更新本地活动数据
-      const activities = wx.getStorageSync('activities') || [];
-      const activityIndex = activities.findIndex(a => a.column === activityColumn);
-      if (activityIndex !== -1) {
-        // 重新获取参与者列表
-        activities[activityIndex].participants = await this.getActivityParticipants(activityColumn);
-        wx.setStorageSync('activities', activities);
-      }
-
-      return { success: true };
-
-    } catch (err) {
-      console.error('取消报名失败:', err);
       throw err;
     }
   }

@@ -1,6 +1,5 @@
 const app = getApp();
 const loginService = require('../../utils/login-service');
-const { sheetsAPI } = require('../../utils/sheets-api');
 
 // 定义默认用户信息
 const DEFAULT_USER = {
@@ -13,36 +12,20 @@ Page({
     isLoading: false,
     loginStep: 'login', // 'login' 或 'complete'
     isLoggedIn: false,
-    userInfo: DEFAULT_USER
+    userInfo: null
   },
 
   onLoad() {
-    // 检查是否已登录
+    // 检查登录状态
     const isLoggedIn = loginService.checkLoginStatus();
-    const storedUser = loginService.getUserInfo();
-
     if (isLoggedIn) {
-      this.setData({
-        isLoggedIn: true
-      });
-
-      if (storedUser) {
+      const userInfo = loginService.getUserInfo();
+      if (userInfo) {
         this.setData({
-          userInfo: storedUser,
+          isLoggedIn: true,
+          userInfo,
           loginStep: 'complete'
         });
-        app.globalData.userInfo = storedUser;
-        app.globalData.hasLogin = true;
-        this.navigateToIndex();
-      } else {
-        // 登录了但没有用户信息，则直接使用默认
-        this.setData({
-          userInfo: DEFAULT_USER,
-          loginStep: 'complete'
-        });
-        wx.setStorageSync('userInfo', DEFAULT_USER);
-        app.globalData.userInfo = DEFAULT_USER;
-        app.globalData.hasLogin = true;
         this.navigateToIndex();
       }
     }
@@ -56,55 +39,27 @@ Page({
       // 1. 获取登录凭证
       const { code } = await wx.login();
       
-      // 2. 获取用户 OpenID
-      const { openid } = await loginService.getOpenId(code);
-      if (!openid) {
-        throw new Error('获取OpenID失败');
-      }
-
-      // 3. 查找用户信息
-      const user = await loginService.findUserByOpenId(openid);
+      // 2. 执行登录
+      const userInfo = await loginService.handleLogin(code);
       
-      if (user) {
-        // 用户已存在，直接登录
-        console.log('用户已存在，直接登录');
-        await loginService.saveLoginState(code);
-        
-        // 保存用户信息到本地
-        wx.setStorageSync('wechatId', user.wechatId);
-        wx.setStorageSync('userInfo', user);
-        
-        // 跳转到首页
-        wx.switchTab({
-          url: '/pages/index/index'
-        });
-      } else {
-        // 用户不存在，需要创建新用户
-        console.log('用户不存在，创建新用户');
-        const defaultUserInfo = {
-          wechatId: 'user_' + openid.slice(-8),
-          openid: openid
-        };
-        
-        const newUser = await sheetsAPI.createNewUser(defaultUserInfo);
-        
-        // 保存用户信息
-        wx.setStorageSync('wechatId', newUser.wechatId);
-        wx.setStorageSync('userInfo', newUser);
-        
-        // 保存登录状态
-        await loginService.saveLoginState(code);
-        
-        // 跳转到首页
-        wx.switchTab({
-          url: '/pages/index/index'
-        });
-      }
+      // 3. 更新全局状态
+      app.globalData.userInfo = userInfo;
+      app.globalData.hasLogin = true;
+
+      // 4. 更新页面状态
+      this.setData({
+        isLoggedIn: true,
+        userInfo,
+        loginStep: 'complete'
+      });
+
+      // 5. 延迟跳转
+      setTimeout(() => this.navigateToIndex(), 1500);
 
     } catch (err) {
       console.error('登录失败:', err);
       wx.showToast({
-        title: '登录失败',
+        title: err.message || '登录失败',
         icon: 'none'
       });
     } finally {
@@ -114,10 +69,8 @@ Page({
 
   // 跳转到首页
   navigateToIndex() {
-    setTimeout(() => {
-      wx.switchTab({
-        url: '/pages/index/index'
-      });
-    }, 1000);
+    wx.switchTab({
+      url: '/pages/index/index'
+    });
   }
 }); 

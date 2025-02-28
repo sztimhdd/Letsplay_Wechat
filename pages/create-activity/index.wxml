@@ -1,5 +1,4 @@
 <view class="container">
-  <!-- 导航栏 -->
   <navigation-bar 
     title="创建活动" 
     back="{{true}}"

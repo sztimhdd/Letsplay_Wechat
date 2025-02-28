@@ -7,6 +7,42 @@
   display: flex;
   flex-direction: column;
   gap: 32rpx;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+/* 新活动卡片样式 */
+.activity-card.new {
+  border: 2rpx solid #1677ff;
+  box-shadow: 0 8rpx 24rpx rgba(22, 119, 255, 0.1);
+}
+
+/* New 徽章样式 */
+.new-badge {
+  position: absolute;
+  top: -12rpx;
+  right: 40rpx;
+  background: #1677ff;
+  color: #ffffff;
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 4rpx 12rpx;
+  border-radius: 12rpx;
+  box-shadow: 0 4rpx 8rpx rgba(22, 119, 255, 0.2);
+  transform: scale(1);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 /* 主要信息区域 */

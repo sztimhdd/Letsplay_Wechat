@@ -8,18 +8,25 @@
 </page-meta>
 
 <view class="container">
-  <!-- 导航栏占位 -->
-  <view class="nav-placeholder" style="height: {{navPlaceholderHeight}}px;"></view>
-  
+  <!-- 加载状态 -->
+  <view class="loading-container" wx:if="{{isLoading}}">
+    <loading-spinner />
+  </view>
+
   <!-- 活动列表 -->
-  <view class="activity-list">
-    <activity-card 
-      wx:for="{{activities}}" 
-      wx:key="id"
-      activity="{{item}}"
-      bind:tap="goToDetail"
-      data-id="{{item.id}}"
-    />
+  <view id="activity-list" class="activity-list {{isLoading ? 'hidden' : ''}}">
+    <block wx:if="{{activities.length > 0}}">
+      <activity-card 
+        wx:for="{{activities}}" 
+        wx:key="id"
+        activity="{{item}}"
+        bind:tap="onActivityTap"
+      />
+    </block>
+    <view wx:else class="empty-state">
+      <image class="empty-icon" src="/assets/icons/empty.png" mode="aspectFit"></image>
+      <text class="empty-text">暂无活动</text>
+    </view>
   </view>
 
   <!-- 悬浮的新增按钮 -->

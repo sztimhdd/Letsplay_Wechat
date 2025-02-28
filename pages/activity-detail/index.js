@@ -1,6 +1,7 @@
-const { users: mockUsers } = require('../../mock/users');
 const app = getApp();
-import { signUpService } from '../../services/signup-service';
+const loginService = require('../../utils/login-service');
+const signUpService = require('../../services/signup-service');
+const userService = require('../../services/user-service');
 
 function parseTimeSlot(timeSlot) {
   if (!timeSlot) return { startTime: '', endTime: '' };
@@ -12,6 +13,7 @@ function parseTimeSlot(timeSlot) {
 Page({
   data: {
     activity: null,  // 当前显示的活动
+    participants: [],
     canSignUp: false,
     hasJoined: false,
     statusBarHeight: 20,
@@ -19,7 +21,8 @@ Page({
     adminUnlocked: false,
     adminPassword: '',  // 确保在data中定义了adminPassword字段
     loading: true,
-    perPersonFee: '0.00'
+    perPersonFee: '0.00',
+    canCancel: false
   },
 
   async onLoad(options) {
@@ -32,72 +35,67 @@ Page({
         loading: true
       });
 
-      try {
-        wx.showLoading({ title: '加载中...' });
-        await app.refreshActivities();
-        
-        // 获取活动数据
-        const activity = app.getActivityById(id);
-        
-        if (!activity) {
-          throw new Error('活动不存在');
-        }
-
-        // 解析时间段
-        const { startTime, endTime } = parseTimeSlot(activity.timeSlot);
-        
-        // 检查是否可以取消报名（活动开始前2小时内不能取消）
-        let canCancel = false;
-        try {
-          const activityDate = new Date(activity.date.replace(/(\d+)\/(\d+)\/(\d+)/, '$3/$1/$2'));
-          
-          // 使用解析后的开始时间
-          const [hours, minutes] = startTime.split(':');
-          
-          activityDate.setHours(parseInt(hours), parseInt(minutes));
-          
-          const now = new Date();
-          const timeUntilStart = activityDate.getTime() - now.getTime();
-          canCancel = timeUntilStart >= 2 * 60 * 60 * 1000; // 2小时
-        } catch (err) {
-          console.error('时间处理错误:', err);
-          canCancel = false;
-        }
-
-        // 检查当前用户是否已报名
-        const currentUser = await app.getCurrentUser();
-        const hasJoined = currentUser && activity.participants?.some(p => p.wechat === currentUser.wechat);
-
-        // 扩展活动数据
-        const enrichedActivity = {
-          ...activity,
-          startTime,
-          endTime,
-          statusText: this.getStatusText(activity.status)
-        };
-
-        this.setData({
-          activity: enrichedActivity,
-          loading: false,
-          hasJoined,
-          canCancel,
-          canSignUp: activity.status === 'upcoming' && !hasJoined
-        });
-
-        // 加载参与者信息
-        await this.loadParticipants();
-
-      } catch (err) {
-        console.error('加载活动详情失败:', err);
-        wx.showToast({
-          title: err.message || '加载失败',
-          icon: 'none'
-        });
-      } finally {
-        wx.hideLoading();
-      }
+      await this.loadActivityDetail(id);
     } catch (err) {
       console.error('页面加载失败:', err);
+      wx.showToast({
+        title: '加载失败',
+        icon: 'none'
+      });
+    }
+  },
+
+  async loadActivityDetail(id) {
+    try {
+      wx.showLoading({ title: '加载中...' });
+      
+      // 从全局获取活动数据
+      const activity = app.globalData.activities?.find(a => a.id === id);
+      if (!activity) {
+        throw new Error('活动不存在');
+      }
+
+      // 检查活动状态
+      const now = new Date();
+      const activityDate = new Date(activity.date.replace(/(\d+)\/(\d+)\/(\d+)/, '$3/$1/$2'));
+      const [startHour, startMinute] = activity.timeSlot.split('-')[0].split(':');
+      activityDate.setHours(parseInt(startHour), parseInt(startMinute));
+
+      const isCompleted = now > activityDate;
+      const status = isCompleted ? 'completed' : 'upcoming';
+      const statusText = isCompleted ? '已结束' : '进行中';
+
+      // 检查是否可以报名或取消
+      const currentUser = await app.getCurrentUser();
+      const hasJoined = currentUser && activity.participants?.some(p => p.wechat === currentUser.wechat);
+      
+      // 只有未结束的活动才能报名
+      const canSignUp = !isCompleted && !hasJoined && activity.participants.length < activity.maxParticipants;
+      
+      // 活动开始前2小时内不能取消
+      const canCancel = hasJoined && !isCompleted && (activityDate - now > 2 * 60 * 60 * 1000);
+
+      this.setData({
+        activity: {
+          ...activity,
+          status,
+          statusText
+        },
+        participants: activity.participants || [],
+        hasJoined,
+        canSignUp,
+        canCancel,
+        loading: false
+      });
+
+    } catch (err) {
+      console.error('加载活动详情失败:', err);
+      wx.showToast({
+        title: err.message || '加载失败',
+        icon: 'none'
+      });
+    } finally {
+      wx.hideLoading();
     }
   },
 
@@ -601,139 +599,53 @@ Page({
   // 更新报名方法
   async onSignUp() {
     try {
-      // 检查活动状态
-      if (this.data.activity.status === 'completed') {
+      wx.showLoading({ title: '处理中...' });
+      
+      // 检查登录状态
+      if (!loginService.checkLoginStatus()) {
+        throw new Error('请先登录');
+      }
+
+      const currentUser = loginService.getUserInfo();
+      if (!currentUser) {
+        throw new Error('获取用户信息失败');
+      }
+
+      const { activity, hasJoined, canSignUp, canCancel } = this.data;
+
+      if (activity.status === 'completed') {
         throw new Error('活动已结束');
       }
 
-      if (this.data.activity.isFull && !this.data.hasJoined) {
+      if (hasJoined && !canCancel) {
+        throw new Error('活动即将开始，无法取消报名');
+      }
+
+      if (!hasJoined && !canSignUp) {
         throw new Error('活动已满员');
       }
 
-      // 如果已报名，则执行取消报名
-      if (this.data.hasJoined) {
-        await this.cancelSignUp();
-        return;
-      }
+      // 使用新的 signUpService
+      const result = hasJoined 
+        ? await signUpService.cancelSignUp(activity.column)
+        : await signUpService.signUp(activity.column);
 
-      // 获取活动列并添加日志
-      const { activity } = this.data;
-      console.log('报名时的完整活动数据:', activity);
+      // 刷新数据
+      await this.loadActivityDetail(activity.id);
 
-      if (!activity.column) {
-        console.error('缺少列标识:', {
-          id: activity.id,
-          field: activity.field,
-          column: activity.column
-        });
-        throw new Error('活动信息不完整');
-      }
-
-      wx.showLoading({ title: '报名中' });
-      const result = await signUpService.signUp(activity.column);
-
-      if (result.success) {
-        wx.showToast({
-          title: '报名成功',
-          icon: 'success',
-          duration: 2000
-        });
-
-        // 刷新页面数据
-        setTimeout(async () => {
-          await this.refreshData();
-        }, 2000);
-      }
-
-    } catch (err) {
-      console.error('报名失败:', err);
       wx.showToast({
-        title: err.message || '报名失败',
-        icon: 'none',
-        duration: 2000
-      });
-    } finally {
-      wx.hideLoading();
-    }
-  },
-
-  // 取消报名
-  async cancelSignUp() {
-    try {
-      if (this.data.activity.status === 'completed') {
-        throw new Error('已结束活动不能取消');
-      }
-
-      if (!this.data.canCancel) {
-        throw new Error('活动开始前2小时内不能取消报名');
-      }
-
-      const confirmResult = await new Promise(resolve => {
-        wx.showModal({
-          title: '确认取消',
-          content: '确定要取消报名吗？',
-          success: resolve
-        });
+        title: hasJoined ? '已取消报名' : '报名成功',
+        icon: 'success'
       });
 
-      if (!confirmResult.confirm) {
-        return;
-      }
-
-      wx.showLoading({ title: '取消中' });
-
-      // 执行取消报名
-      const result = await signUpService.cancelSignUp(this.data.activity.column);
-
-      if (result.success) {
-        wx.showToast({
-          title: '已取消报名',
-          icon: 'success',
-          duration: 1500
-        });
-
-        // 刷新页面数据
-        await this.refreshData();
-      } else {
-        throw new Error('取消报名失败');
-      }
-
     } catch (err) {
-      console.error('取消报名失败:', err);
+      console.error(err);
       wx.showToast({
-        title: err.message || '取消失败',
-        icon: 'none',
-        duration: 2000
-      });
-    } finally {
-      wx.hideLoading();
-    }
-  },
-
-  // 刷新页面数据
-  async refreshData() {
-    try {
-      await app.refreshActivities();
-      const activity = app.getActivityById(this.data.activity.id);
-      if (activity) {
-        // 检查当前用户是否已报名
-        const currentUser = await app.getCurrentUser();
-        const hasJoined = currentUser && activity.participants?.some(p => p.wechat === currentUser.wechat);
-
-        this.setData({ 
-          activity,
-          hasJoined
-        });
-
-        // 更新参与者列表
-        this.loadParticipants();
-      }
-    } catch (err) {
-      console.error('刷新数据失败:', err);
-      wx.showToast({
-        title: '刷新失败',
+        title: err.message || '操作失败',
         icon: 'none'
       });
+    } finally {
+      wx.hideLoading();
     }
   },
 

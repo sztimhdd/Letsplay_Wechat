@@ -1,7 +1,8 @@
 // pages/my-activities/index.js
 
-const { sheetsAPI } = require('../../utils/sheets-api');
 const loginService = require('../../utils/login-service');
+const sheetsAPI = require('../../utils/sheets-api');
+const { userService } = require('../../services/user-service');
 const app = getApp();
 
 Page({
@@ -40,74 +41,67 @@ Page({
             });
         }
 
-        // 检查登录状态
-        this.checkLoginStatus();
-        
         try {
-            const wechatId = wx.getStorageSync('wechatId');
-            if (!wechatId) {
-                console.error('未找到用户ID');
+            // 检查登录状态
+            if (!loginService.checkLoginStatus()) {
+                wx.redirectTo({ url: '/pages/login/index' });
                 return;
             }
 
-            this.setData({ wechatId });
-            
-            // 从 Record 表获取用户数据
-            const user = await sheetsAPI.getUser(wechatId);
-            
-            if (user) {
-                this.setData({
-                    balance: user.balance.toFixed(2),      // D列：余额
-                    ytdSpent: user.spentYTD.toFixed(2),   // E列：年度消费
-                    userName: user.name || wechatId        // 设置用户名
-                });
-            } else {
-                console.warn('未找到用户数据');
-                this.setData({
-                    balance: '0.00',
-                    ytdSpent: '0.00'
-                });
+            // 获取用户信息
+            const userInfo = loginService.getUserInfo();
+            if (!userInfo) {
+                throw new Error('未找到用户信息');
             }
 
-            // 加载交易记录
-            await this.loadTransactions();
-            await this.loadActivities();
-            
-            this.setData({ isLoading: false });
+            // 更新页面数据
+            this.setData({
+                userInfo,
+                wechatId: userInfo.wechatId,
+                userName: userInfo.name || '微信用户'
+            });
+
+            // 加载用户数据
+            await this.loadUserData();
+
         } catch (err) {
             console.error('页面加载失败:', err);
-            this.setData({ isLoading: false });
+            wx.showToast({
+                title: '加载失败',
+                icon: 'none'
+            });
         }
     },
     
-    /**
-     * 检查登录状态
-     */
-    checkLoginStatus() {
-        const isLoggedIn = loginService.checkLoginStatus();
-        
-        if (!isLoggedIn) {
-            console.log('用户未登录，跳转到登录页面');
-            wx.navigateTo({
-                url: '/pages/login/index'
-            });
-            return false;
-        }
-        
-        // 获取用户信息
-        const userInfo = loginService.getUserInfo();
-        if (userInfo) {
+    async loadUserData() {
+        try {
+            const userInfo = loginService.getUserInfo();
+            if (!userInfo) {
+                throw new Error('未找到用户信息');
+            }
+
+            // 获取用户余额
+            const balance = await sheetsAPI.getUserBalance(userInfo.wechatId);
+            
+            // 获取用户年度消费
+            const ytdSpent = await sheetsAPI.getUserYTDSpent(userInfo.wechatId);
+
             this.setData({
-                userInfo: userInfo,
-                hasUserInfo: true
+                balance: balance || '0.00',
+                ytdSpent: ytdSpent || '0.00'
             });
-            app.globalData.userInfo = userInfo;
-            app.globalData.hasLogin = true;
-        } else {
-            console.log('已登录但无用户信息');
+
+            // 加载活动和交易记录
+            await Promise.all([
+                this.loadActivities(),
+                this.loadTransactions()
+            ]);
+
+            this.setData({ isLoading: false });
+        } catch (err) {
+            console.error('加载用户数据失败:', err);
+            this.setData({ isLoading: false });
         }
-        
-        return true;
     },
     
     /**
@@ -188,39 +182,7 @@ Page({
 
     async loadTransactions() {
         try {
-            // 使用缓存数据获取交易记录
-            const sheetData = await sheetsAPI.loadAllSheetData();
-            const transactions = [];
-            
-            // 处理活动消费记录
-            if (sheetData.record?.activities) {
-                const userActivities = sheetData.record.activities.filter(
-                    a => a.participants?.some(p => p.wechatId === this.data.wechatId)
-                );
-                transactions.push(...userActivities.map(a => ({
-                    type: 'expense',
-                    date: a.date,
-                    amount: a.perPersonFee,
-                    displayTitle: `${a.venue} ${a.timeSlot}`
-                })));
-            }
-            
-            // 处理充值记录
-            if (sheetData.deposits) {
-                const userDeposits = sheetData.deposits.filter(
-                    d => d.wechatId === this.data.wechatId
-                );
-                transactions.push(...userDeposits.map(d => ({
-                    type: 'deposit',
-                    date: d.date,
-                    amount: d.amount,
-                    displayTitle: `充值 - ${d.method === 'Cash' ? '现金' : '电子转账'}`
-                })));
-            }
-            
-            // 按日期排序
-            transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
-            
+            const transactions = await sheetsAPI.getUserTransactions(this.data.wechatId);
             this.setData({ transactions });
         } catch (err) {
             console.error('加载交易记录失败:', err);
@@ -249,8 +211,7 @@ Page({
      * 页面相关事件处理函数--监听用户下拉动作
      */
     onPullDownRefresh: function() {
-        this.loadActivities();
-        wx.stopPullDownRefresh();
+        this.loadUserData();
     },
 
     /**
@@ -270,30 +231,26 @@ Page({
     },
 
     switchTab: function(e) {
-        var tab = e.currentTarget.dataset.tab;
-        this.setData({ activeTab: tab }, function() {
-            // 切换标签时重新加载并筛选活动
-            this.loadActivities();
-        }.bind(this));
+        const tab = e.currentTarget.dataset.tab;
+        this.setData({ 
+            activeTab: tab,
+            isLoading: true
+        }, async () => {
+            await this.loadActivities();
+            this.setData({ isLoading: false });
+        });
     },
 
-    // 添加统一的活动加载方法
     async loadActivities() {
         try {
-            // 使用新的统一方法获取活动
             const activities = await sheetsAPI.getActivities({
                 wechatId: this.data.wechatId,
-                includeDetails: true,
                 status: this.data.activeTab
             });
 
             this.setData({ activities });
         } catch (err) {
             console.error('加载活动列表失败:', err);
-            wx.showToast({
-                title: '加载失败',
-                icon: 'none'
-            });
         }
     },
 

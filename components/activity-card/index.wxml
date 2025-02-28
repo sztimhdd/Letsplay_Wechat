@@ -1,4 +1,7 @@
-<view class="activity-card {{activity.status}}" bindtap="onTap">
+<view class="activity-card {{activity.status}} {{activity.isNew ? 'new' : ''}}" bindtap="onTap">
+  <!-- New 徽章 -->
+  <view class="new-badge" wx:if="{{activity.isNew}}">NEW</view>
+
   <!-- 主要信息区域 -->
   <view class="main-info">
     <!-- 日期和时间 -->

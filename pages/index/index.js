@@ -1,96 +1,76 @@
 // index.js
-const app = getApp();
 const loginService = require('../../utils/login-service');
+const sheetsAPI = require('../../utils/sheets-api');
+const app = getApp();
 
 Page({
   data: {
     activities: [],
-    loading: true,
-    statusBarHeight: 20,
-    navPlaceholderHeight: 30
+    isLoading: true,
+    isLoggedIn: false,
+    userInfo: null,
+    hasUserInfo: false,
+    canIUseGetUserProfile: false,
+    showLoginModal: false,
+    activityListRect: null,
+    scrollPosition: {
+      scrollTop: 0,
+      scrollHeight: 0
+    }
   },
 
   async onLoad() {
-    // 获取系统状态栏高度
-    const windowInfo = wx.getWindowInfo();
-    this.setData({
-      statusBarHeight: windowInfo.statusBarHeight,
-      navPlaceholderHeight: windowInfo.statusBarHeight + 10 // 状态栏高度加10px作为占位
-    });
-
-    // 检查登录状态
-    const isLoggedIn = this.checkLoginStatus();
-    
-    // 如果未登录，等待登录页面处理
-    if (!isLoggedIn) {
-      return;
-    }
-
-    // 如果活动数据已加载，直接使用
-    if (app.globalData.activitiesLoaded) {
-      const activities = app.globalData.activities.map(activity => ({
-        ...activity,
-        perPersonFee: parseFloat(activity.perPersonFee).toFixed(2)
-      }));
-      
-      this.setData({
-        activities,
-        loading: false
-      });
-    } else {
-      // 等待数据加载完成
-      await this.loadActivities();
-    }
-  },
-
-  // 检查登录状态
-  checkLoginStatus() {
-    const isLoggedIn = loginService.checkLoginStatus();
-    
-    if (!isLoggedIn) {
-      console.log('用户未登录，跳转到登录页面');
-      wx.navigateTo({
-        url: '/pages/login/index'
-      });
-      return false;
-    } else {
+    try {
+      // 1. 检查登录状态
+      const isLoggedIn = loginService.checkLoginStatus();
       const userInfo = loginService.getUserInfo();
-      if (userInfo) {
-        app.globalData.userInfo = userInfo;
-        app.globalData.hasLogin = true;
-      } else {
-        console.log('已登录但无用户信息，需要获取用户信息');
-      }
-      return true;
+
+      this.setData({
+        isLoggedIn,
+        userInfo,
+        hasUserInfo: !!userInfo
+      });
+
+      // 2. 初始化 sheetsAPI
+      await sheetsAPI.initialize();
+
+      // 3. 加载活动列表
+      await this.loadActivities();
+
+    } catch (err) {
+      console.error('页面加载失败:', err);
+      wx.showToast({
+        title: '加载失败',
+        icon: 'none'
+      });
+    } finally {
+      this.setData({ isLoading: false });
     }
-  },
-
-  async onShow() {
-    // 等待页面渲染完成
-    await new Promise(resolve => {
-      setTimeout(() => {
-        this.getElementInfo();
-        resolve();
-      }, 300); // 增加延时确保元素已渲染
-    });
-  },
-
-  async onPullDownRefresh() {
-    await this.refreshData();
   },
 
   async loadActivities() {
-    wx.showLoading({ title: '加载中' });
     try {
-      while (!app.globalData.activitiesLoaded) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      
-      // 直接使用全局活动数据，无需额外处理
-      this.setData({
-        activities: app.globalData.activities,
-        loading: false
+      this.setData({ isLoading: true });
+
+      // 获取活动列表
+      const activities = await sheetsAPI.getActivities({
+        limit: 20,
+        includeDetails: true
       });
+
+      console.log('获取到的活动列表:', {
+        total: activities.length,
+        sample: activities[0]
+      });
+
+      this.setData({
+        activities,
+        isLoading: false
+      });
+
+      // 更新全局活动数据
+      app.globalData.activities = activities;
+      app.globalData.activitiesLoaded = true;
 
     } catch (err) {
       console.error('加载活动列表失败:', err);
@@ -98,9 +78,50 @@ Page({
         title: '加载失败',
         icon: 'none'
       });
-    } finally {
-      wx.hideLoading();
+      this.setData({ isLoading: false });
     }
+  },
+
+  // 点击活动卡片
+  onActivityTap(e) {
+    const { id } = e.detail;
+    wx.navigateTo({
+      url: `/pages/activity-detail/index?id=${id}`
+    });
+  },
+
+  // 下拉刷新
+  async onPullDownRefresh() {
+    try {
+      await this.loadActivities();
+    } finally {
+      wx.stopPullDownRefresh();
+    }
+  },
+
+  // 获取活动列表位置信息
+  async getActivityListRect() {
+    return new Promise((resolve) => {
+      const query = wx.createSelectorQuery();
+      query.select('#activity-list').boundingClientRect();
+      query.exec((res) => {
+        if (res && res[0]) {
+          console.log('活动列表位置和尺寸:', res[0]);
+          this.setData({ activityListRect: res[0] });
+          resolve(res[0]);
+        } else {
+          resolve(null);
+        }
+      });
+    });
+  },
+
+  // 监听页面滚动
+  onPageScroll(e) {
+    console.log('页面滚动位置:', e);
+    this.setData({
+      scrollPosition: e
+    });
   },
 
   onSearch: function(e) {

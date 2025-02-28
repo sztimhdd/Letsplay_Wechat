@@ -564,9 +564,7 @@
   background: #1890ff;
 }
 
-.action-bar {
-  /* ... 其他样式保持不变 ... */
-}
+
 
 .signup-btn {
   background: #07c160;

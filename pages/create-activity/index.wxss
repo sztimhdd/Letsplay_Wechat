@@ -3,12 +3,12 @@
   min-height: 100vh;
   background: #f8f9fa;
   padding-bottom: calc(140rpx + env(safe-area-inset-bottom));
-  padding-top: calc(44px + env(safe-area-inset-top)); /* 为导航栏预留空间 */
+  padding-top: 100rpx; /* 移除之前的固定内边距 */
 }
 
 .form-container {
   padding: 32rpx;
-  margin-top: 60rpx; /* 增加顶部间距 */
+  margin-top: 20rpx; /* 减小顶部间距 */
 }
 
 .form-item {
