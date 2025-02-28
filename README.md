@@ -59,7 +59,7 @@
     - D列：当前余额
     - E列：年度消费
   * F列及之后：活动记录（每列一个活动）
-    - 第2行：活动日期（格式：M/DD/YYYY,例如 “2/28/2025”）
+    - 第2行：活动日期（格式：M/DD/YYYY,例如 "2/28/2025"）
     - 第3行：场地信息（格式：X号场 - XX人）
     - 第4行：时间段（格式：HH:mm-HH:mm）
     - 第5行：总费用
@@ -367,3 +367,56 @@ export const validator = {
 | 2005 | 签到时间已过 | 提示用户签到已结束 |
 | 3001 | 无管理员权限 | 使用管理员账号 |
 | 3002 | 结算金额错误 | 检查结算金额 |
+```
+
+## 项目设置
+
+### 凭证配置
+
+本项目使用Google Sheets API进行数据存储和读取。为了使项目正常运行，你需要配置以下凭证文件：
+
+1. `utils/credentials.js` - Google Sheets API凭证文件
+
+这些文件包含敏感信息，已在`.gitignore`和`.gitignore_global`中配置为不上传到GitHub。
+
+#### 如何配置凭证
+
+1. 从项目管理员处获取Google Sheets API凭证JSON文件
+2. 在项目根目录创建`utils/credentials.js`文件，内容如下：
+
+```javascript
+// Google Sheets API 凭证
+export const credentials = {
+  "type": "service_account",
+  "project_id": "你的project_id",
+  "private_key_id": "你的private_key_id",
+  "private_key": "你的private_key",
+  "client_email": "你的client_email",
+  "client_id": "你的client_id",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "你的client_x509_cert_url",
+  "universe_domain": "googleapis.com"
+};
+```
+
+3. 将JSON文件中的相应值填入上述模板中
+
+### Git配置
+
+为了确保敏感凭证不会被上传到GitHub，我们使用了全局gitignore文件：
+
+```bash
+git config --local core.excludesfile .gitignore_global
+```
+
+这将确保`utils/credentials.js`和其他敏感文件不会被Git跟踪。
+
+## 项目功能
+
+[在这里添加项目功能描述]
+
+## 开发指南
+
+[在这里添加开发指南]
