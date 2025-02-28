@@ -1,0 +1,10 @@
+# 敏感凭证文件
+utils/credentials.js
+skyline-g-1-*.json
+*.key
+*.pem
+.env
+
+# 其他敏感文件
+credentials/
+secrets/ 
