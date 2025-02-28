@@ -50,53 +50,65 @@ Page({
 
   // 处理微信登录
   async handleLogin() {
-    this.setData({ isLoading: true });
-    
     try {
-        const loginResult = await loginService.login();
+      wx.showLoading({ title: '登录中...' });
+      
+      // 1. 获取登录凭证
+      const { code } = await wx.login();
+      
+      // 2. 获取用户 OpenID
+      const { openid } = await loginService.getOpenId(code);
+      if (!openid) {
+        throw new Error('获取OpenID失败');
+      }
+
+      // 3. 查找用户信息
+      const user = await loginService.findUserByOpenId(openid);
+      
+      if (user) {
+        // 用户已存在，直接登录
+        console.log('用户已存在，直接登录');
+        await loginService.saveLoginState(code);
         
-        if (loginResult.success) {
-            if (loginResult.needMatch) {
-                console.log('需要进行用户匹配');
-                this.setData({ isLoading: false });
-                return;
-            }
-            
-            console.log('登录成功，使用默认用户信息');
-            
-            // 使用新的统一方法更新用户表
-            try {
-                const sheetData = await sheetsAPI.loadAllSheetData();
-                if (!sheetData.users[loginResult.wechatId]) {
-                    await sheetsAPI.createNewUser({
-                        wechatId: loginResult.wechatId,
-                        openid: loginResult.openid
-                    });
-                }
-                console.log('用户表更新成功');
-            } catch (err) {
-                console.error('用户表更新失败:', err);
-            }
-            
-            // 设置全局用户信息
-            app.globalData.userInfo = DEFAULT_USER;
-            app.globalData.hasLogin = true;
-            
-            this.navigateToIndex();
-        } else {
-            wx.showToast({
-                title: loginResult.error || '登录失败，请重试',
-                icon: 'none'
-            });
-            this.setData({ isLoading: false });
-        }
-    } catch (err) {
-        console.error('登录过程发生错误:', err);
-        wx.showToast({
-            title: '登录失败，请重试',
-            icon: 'none'
+        // 保存用户信息到本地
+        wx.setStorageSync('wechatId', user.wechatId);
+        wx.setStorageSync('userInfo', user);
+        
+        // 跳转到首页
+        wx.switchTab({
+          url: '/pages/index/index'
         });
-        this.setData({ isLoading: false });
+      } else {
+        // 用户不存在，需要创建新用户
+        console.log('用户不存在，创建新用户');
+        const defaultUserInfo = {
+          wechatId: 'user_' + openid.slice(-8),
+          openid: openid
+        };
+        
+        const newUser = await sheetsAPI.createNewUser(defaultUserInfo);
+        
+        // 保存用户信息
+        wx.setStorageSync('wechatId', newUser.wechatId);
+        wx.setStorageSync('userInfo', newUser);
+        
+        // 保存登录状态
+        await loginService.saveLoginState(code);
+        
+        // 跳转到首页
+        wx.switchTab({
+          url: '/pages/index/index'
+        });
+      }
+
+    } catch (err) {
+      console.error('登录失败:', err);
+      wx.showToast({
+        title: '登录失败',
+        icon: 'none'
+      });
+    } finally {
+      wx.hideLoading();
     }
   },
 

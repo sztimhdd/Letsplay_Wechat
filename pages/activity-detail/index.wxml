@@ -5,123 +5,63 @@
       <view class="back-btn" bindtap="goBack">
         <text class="back-arrow">←</text>
       </view>
-      <view class="title">活动详情</view>
+      <text class="title">活动详情</text>
     </view>
   </view>
 
-  <!-- 占位符 -->
-  <view style="height: 44px;"></view> <!-- 确保内容不被遮挡 -->
-
-  <!-- 活动封面图 -->
-  <image 
-    class="activity-cover {{activity.status === 'completed' ? 'completed' : ''}}" 
-    src="{{activity.coverImage}}" 
-    mode="aspectFill"
-    binderror="handleImageError"
-    data-type="cover"
-  />
-
-  <!-- 活动基本信息 -->
-  <view class="activity-header">
-    <text class="activity-name">{{activity.name}}</text>
-    <text class="activity-status">{{activity.statusText}}</text>
-  </view>
-
-  <view class="fee-info">
-    <view class="total-fee">
-      <text class="label">总费用</text>
-      <text class="value">¥{{activity.totalFee}}</text>
+  <!-- 主要信息卡片 -->
+  <view class="main-card">
+    <!-- 日期和时间信息 -->
+    <view class="datetime-info">
+      <text class="date">{{activity.displayDate}}</text>
+      <text class="time">{{activity.timeSlot}}</text>
+      <text class="venue">{{activity.venue}}</text>
     </view>
-    <view class="per-person-fee">
-      <text class="label">报名后每人费用</text>
-      <text class="value">¥{{activity.perPersonFee}}</text>
-    </view>
-    <view class="participants-count">
-      <text class="label">当前报名人数</text>
-      <text class="value">{{activity.participants.length || 0}}/{{activity.maxParticipants}}</text>
-    </view>
-  </view>
 
-  <!-- 活动详细信息 -->
-  <view class="info-list">
-    <view class="info-item">
-      <icon type="waiting" size="16" color="#666"/>
-      <text>{{activity.date}} {{activity.startTime}}-{{activity.endTime}}</text>
-    </view>
-    <view class="info-item">
-      <icon type="location" size="16" color="#666"/>
-      <text>{{activity.location}}</text>
-    </view>
-    <view class="info-item">
-      <icon type="contact" size="16" color="#666"/>
-      <text>发起人：{{activity.organizer}}</text>
-    </view>
-  </view>
-
-  <!-- 活动描述 -->
-  <view class="description">
-    <view class="section-title">活动说明</view>
-    <text>{{activity.description || '暂无活动说明'}}</text>
-  </view>
-
-  <!-- 参与者列表 -->
-  <view class="participants">
-    <view class="title">参与者 (已签到 {{activity.participants.length}}/{{activity.maxParticipants}})</view>
-    <view class="list">
-      <view wx:for="{{participants}}" wx:key="wechat" class="participant">
-        <view class="number">{{item.signUpNumber}}</view>
-        <view class="avatar">
-          <image src="{{item.avatar}}" mode="aspectFill" />
-        </view>
-        <view class="info">
-          <view class="name">{{item.name}}</view>
-          <view class="status">{{item.status || '已签到'}}</view>
-        </view>
-        <view class="fee">¥{{item.fee}}</view>
+    <!-- 活动状态和费用信息 -->
+    <view class="status-fee-info">
+      <view class="status-tag {{activity.status}}">
+        {{activity.statusText}}
+      </view>
+      <view class="fee-info">
+        <text class="amount">¥{{activity.perPersonFee}}</text>
+        <text class="label">/人</text>
       </view>
     </view>
   </view>
-</view>
 
-<!-- 底部操作栏 -->
-<view class="bottom-bar">
-  <view class="share-btn">
-    <button open-type="share" plain>
-      <icon type="share" size="14" color="#666"/>
-      <text>分享</text>
-    </button>
+  <!-- 报名情况卡片 -->
+  <view class="signup-card">
+    <view class="signup-header">
+      <text class="title">报名情况</text>
+      <text class="count {{activity.participants.length >= activity.maxParticipants ? 'full' : ''}}">
+        {{activity.participants.length}}/{{activity.maxParticipants}}
+      </text>
+    </view>
   </view>
-  
-  <!-- 活动按钮 -->
-  <block wx:if="{{activity.status === 'completed'}}">
-    <view class="action-btn disabled">
-      <text>活动已结束</text>
+
+  <!-- 参与者列表 -->
+  <view class="participants-card">
+    <text class="section-title">参与者名单</text>
+    <view class="participants-list">
+      <view wx:for="{{participants}}" wx:key="wechat" class="participant">
+        <view class="participant-info">
+          <text class="number">{{index + 1}}</text>
+          <text class="name">{{item.name}}</text>
+        </view>
+        <text class="fee">¥{{activity.perPersonFee}}</text>
+      </view>
     </view>
-  </block>
-  <block wx:elif="{{activity.isFull && !hasJoined}}">
-    <view class="action-btn disabled">
-      <text>已满员</text>
-    </view>
-  </block>
-  <block wx:else>
-    <view class="action-btn {{hasJoined ? 'cancel' : 'signup'}}-btn" bindtap="onSignUp" disabled="{{loading || (!canSignUp && !canCancel)}}">
+  </view>
+
+  <!-- 底部操作栏 -->
+  <view class="bottom-bar">
+    <button class="share-btn" open-type="share">分享</button>
+    <button 
+      class="action-btn {{hasJoined ? 'cancel' : ''}} {{!canSignUp || !canCancel ? 'disabled' : ''}}"
+      bindtap="onSignUp"
+    >
       {{hasJoined ? (canCancel ? '取消报名' : '无法取消') : '立即报名'}}
-    </view>
-  </block>
-
-  <!-- 管理员操作按钮始终显示 -->
-  <view class="action-btn admin" bindtap="handleAdminAction">
-    <text>{{adminUnlocked ? '管理员操作' : '解锁管理功能'}}</text>
-  </view>
-</view>
-
-<!-- 管理员面板 -->
-<view class="admin-panel" wx:if="{{showAdminPanel}}">
-  <view class="panel-item {{(!activity.participants.length || activity.status !== 'completed') ? 'disabled' : ''}}" 
-        bindtap="{{(!activity.participants.length || activity.status !== 'completed') ? '' : 'handleAdminCheckIn'}}">
-    <text>签到管理</text>
-  </view>
-  <view class="panel-item" bindtap="cancelActivity">
-    <text>取消活动</text>
+    </button>
   </view>
 </view> 

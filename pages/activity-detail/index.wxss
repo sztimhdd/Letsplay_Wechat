@@ -1,8 +1,257 @@
 .container {
-  min-height: calc(100vh - 44px); /* 减去导航栏高度 */
-  background: #fff;
-  padding-bottom: 60px;
-  padding-top: 0; /* 移除顶部内边距 */
+  min-height: 100vh;
+  background: #f8f9fa;
+  padding: 0 24rpx 120rpx;
+  padding-top: 100rpx;
+}
+
+/* 导航栏 */
+.nav-bar {
+  background: #ffffff;
+  position: fixed;
+  width: 100%;
+  left: 0;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-bar-inner {
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  padding: 0 24rpx;
+}
+
+.back-btn {
+  padding: 20rpx;
+  margin-left: -20rpx;
+}
+
+.back-arrow {
+  font-size: 36rpx;
+  color: #333333;
+}
+
+.title {
+  flex: 1;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 500;
+  color: #333333;
+}
+
+/* 主要信息卡片 */
+.main-card {
+  margin-top: 120rpx;
+  padding: 40rpx;
+  background: #ffffff;
+  border-radius: 24rpx;
+  box-shadow: 0 4rpx 20rpx rgba(0,0,0,0.05);
+}
+
+/* 日期和时间信息 */
+.datetime-info {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+  margin-bottom: 32rpx;
+}
+
+.date {
+  font-size: 56rpx;
+  font-weight: 600;
+  color: #333333;
+  line-height: 1.2;
+}
+
+.time {
+  font-size: 36rpx;
+  color: #1677ff;
+  font-weight: 500;
+}
+
+.venue {
+  font-size: 28rpx;
+  color: #666666;
+  background: #f5f5f5;
+  padding: 12rpx 24rpx;
+  border-radius: 8rpx;
+  display: inline-block;
+  margin-top: 8rpx;
+}
+
+/* 状态和费用信息 */
+.status-fee-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 32rpx;
+  border-top: 2rpx solid #f0f0f0;
+}
+
+.status-tag {
+  padding: 12rpx 24rpx;
+  border-radius: 8rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+}
+
+.status-tag.upcoming {
+  background: #e6f4ff;
+  color: #1677ff;
+}
+
+.status-tag.completed {
+  background: #f5f5f5;
+  color: #999999;
+}
+
+.fee-info {
+  display: flex;
+  align-items: baseline;
+}
+
+.fee-info .amount {
+  font-size: 48rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+.fee-info .label {
+  font-size: 28rpx;
+  color: #666666;
+  margin-left: 4rpx;
+}
+
+/* 报名情况卡片 */
+.signup-card {
+  margin-top: 24rpx;
+  padding: 32rpx;
+  background: #ffffff;
+  border-radius: 24rpx;
+}
+
+.signup-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.signup-header .title {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: #333333;
+}
+
+.signup-header .count {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1677ff;
+}
+
+.signup-header .count.full {
+  color: #ff4d4f;
+}
+
+/* 参与者列表卡片 */
+.participants-card {
+  margin-top: 24rpx;
+  padding: 32rpx;
+  background: #ffffff;
+  border-radius: 24rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 500;
+  color: #333333;
+  margin-bottom: 24rpx;
+}
+
+.participants-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.participant {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 2rpx solid #f5f5f5;
+}
+
+.participant:last-child {
+  border-bottom: none;
+}
+
+.participant-info {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.participant .number {
+  width: 40rpx;
+  height: 40rpx;
+  border-radius: 20rpx;
+  background: #f5f5f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  color: #666666;
+}
+
+.participant .name {
+  font-size: 28rpx;
+  color: #333333;
+}
+
+.participant .fee {
+  font-size: 28rpx;
+  color: #ff4d4f;
+}
+
+/* 底部操作栏 */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 24rpx;
+  background: #ffffff;
+  display: flex;
+  gap: 24rpx;
+  box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.05);
+}
+
+.share-btn {
+  flex: 1;
+  background: #f5f5f5;
+  color: #666666;
+  font-size: 28rpx;
+  border: none;
+  border-radius: 40rpx;
+}
+
+.action-btn {
+  flex: 2;
+  background: #1677ff;
+  color: #ffffff;
+  font-size: 28rpx;
+  border: none;
+  border-radius: 40rpx;
+}
+
+.action-btn.cancel {
+  background: #ff4d4f;
+}
+
+.action-btn.disabled {
+  background: #d9d9d9;
+  color: #ffffff;
 }
 
 .activity-cover {
@@ -43,12 +292,6 @@
   animation: slideUp 0.3s ease-out;
 }
 
-.title {
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 16px;
-}
-
 .price-members {
   display: flex;
   justify-content: space-between;
@@ -74,18 +317,8 @@
   margin-bottom: 24px;
 }
 
-.info-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 12px;
-  font-size: 14px;
-  color: #333;
-}
-
-.info-item icon {
-  font-size: 16px;
-  margin-right: 8px;
-  color: #666;
+.info-item:last-child {
+  margin-bottom: 0;
 }
 
 .section-title {
@@ -134,58 +367,6 @@
   transform: scale(0.95);
 }
 
-.bottom-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 60px;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  box-shadow: 0 -2px 4px rgba(0,0,0,0.05);
-}
-
-.share-btn {
-  margin-right: 12px;
-}
-
-.share-btn button {
-  border: none;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  background: transparent;
-}
-
-.share-btn button::after {
-  display: none;
-}
-
-.action-btn {
-  flex: 1;
-  height: 40px;
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  font-size: 14px;
-  background: #1aad19;  /* 默认绿色（报名按钮） */
-}
-
-/* 已报名状态（取消报名按钮） */
-.action-btn.cancel {
-  background: #ff9800;  /* 橙色 */
-}
-
-/* 禁用状态 */
-.action-btn.disabled {
-  background: #cccccc;
-  opacity: 0.8;
-}
-
 .activity-header {
   background: #fff;
   padding: 30rpx;
@@ -204,20 +385,6 @@
   padding: 30rpx;
   border-radius: 12rpx;
   margin-bottom: 20rpx;
-}
-
-.info-item:last-child {
-  margin-bottom: 0;
-}
-
-.label {
-  color: #666;
-  font-size: 28rpx;
-}
-
-.value {
-  font-size: 28rpx;
-  font-weight: bold;
 }
 
 .members-card {
@@ -332,46 +499,6 @@
 
 .fee-item:last-child {
   margin-bottom: 0;
-}
-
-.nav-bar {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 100;
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-}
-
-.nav-bar-inner {
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.back-btn {
-  position: absolute;
-  left: 16px;
-  height: 44px;
-  width: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-}
-
-.back-arrow {
-  font-size: 24px;
-  color: #333;
-}
-
-.title {
-  font-size: 17px;
-  font-weight: 500;
-  color: #333;
 }
 
 @keyframes slideUp {

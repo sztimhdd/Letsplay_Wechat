@@ -1,52 +1,35 @@
-<view class="activity-card">
-  <!-- 背景图片 -->
-  <image class="card-bg" src="/assets/images/covers/default.webp" mode="aspectFill" bindtap="onTap"/>
-  
-  <!-- 内容区域（添加暗色遮罩效果） -->
-  <view class="card-overlay" bindtap="onTap">
-    <view class="card-header">
-      <view class="date-info">
-        <text class="date">{{activity.displayDate}}</text>
-        <text class="time" wx:if="{{activity.startTime}}">{{activity.startTime}}-{{activity.endTime}}</text>
-      </view>
-      <text class="status {{activity.status}}">{{activity.status === 'upcoming' ? '进行中' : '已结束'}}</text>
+<view class="activity-card {{activity.status}}" bindtap="onTap">
+  <!-- 主要信息区域 -->
+  <view class="main-info">
+    <!-- 日期和时间 -->
+    <view class="datetime">
+      <text class="date">{{activity.displayDate}}</text>
+      <text class="time">{{activity.timeSlot}}</text>
     </view>
 
-    <view class="card-content">
-      <view class="info-row">
-        <view class="field-info" wx:if="{{activity.venue}}">
-          <text class="label">场地</text>
-          <text class="value">{{activity.venue}}</text>
-        </view>
-
-        <view class="participants-info">
-          <text class="label">已报名</text>
-          <view class="value {{participantStatus}}">
-            <text>{{participantCount}}</text>
-            <text class="separator">/</text>
-            <text>{{activity.maxParticipants}}</text>
-          </view>
-        </view>
-
-        <view class="fee-info">
-          <text class="label">人均费用</text>
-          <text class="value">¥{{activity.perPersonFee}}</text>
-        </view>
-      </view>
-    </view>
+    <!-- 场地信息 -->
+    <text class="venue" wx:if="{{activity.venue}}">{{activity.venue}}</text>
   </view>
 
-  <!-- 底部操作区域 -->
-  <view class="footer">
-    <view class="participants">
-      已报名: {{participantCount}}/{{activity.maxParticipants}}
+  <!-- 报名信息 -->
+  <view class="signup-section">
+    <view class="participant-count {{participantStatus}}">
+      <text>{{participantCount}}/{{activity.maxParticipants}}人</text>
+      <text class="fee">¥{{activity.perPersonFee}}/人</text>
     </view>
-    <button 
-      class="sign-up-btn"
-      bindtap="onSignUp"
-      disabled="{{participantCount >= activity.maxParticipants}}"
-    >
-      {{participantCount >= activity.maxParticipants ? '已满员' : '立即报名'}}
-    </button>
+
+    <!-- 状态或操作按钮 -->
+    <view class="action-area">
+      <text wx:if="{{participantCount >= activity.maxParticipants}}" 
+            class="status-text full">已满</text>
+      <text wx:elif="{{activity.status === 'completed'}}" 
+            class="status-text completed">已结束</text>
+      <button wx:else 
+              class="signup-btn"
+              bindtap="onSignUp"
+              hover-class="button-hover">
+        报名
+      </button>
+    </view>
   </view>
 </view> 
