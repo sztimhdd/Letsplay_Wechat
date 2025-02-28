@@ -52,7 +52,7 @@ class SheetsAPI {
           AMOUNT: 'E'     // 金额
         },
         TRANSACTIONS_START: 'F',  // 交易记录开始列
-        TRANSACTIONS_END: 'ZZ',   // 交易记录结束列
+        TRANSACTIONS_END: 'HH',   // 交易记录结束列
         DATA_START_ROW: 2         // 数据开始行
       },
       DEPOSIT: {
@@ -63,22 +63,472 @@ class SheetsAPI {
           METHOD: 'D'     // 充值方式
         },
         DATA_START_ROW: 2
+      },
+      USER: {
+        COLUMNS: {
+          WECHAT_ID: 'A',    // 微信名称
+          PINYIN_NAME: 'B',  // 拼音名称
+          OPENID: 'C'        // OpenID
+        },
+        DATA_START_ROW: 2
       }
     };
 
-    // 添加缓存配置
+    // 扩展缓存配置
     this.CACHE_CONFIG = {
-      USERS: {
-        KEY: 'cached_users',
-        EXPIRE_TIME: 5 * 60 * 1000  // 5分钟过期
+      EXPIRE_TIME: 5 * 60 * 1000,  // 5分钟过期
+      KEYS: {
+        SHEET_DATA: 'cached_sheet_data',
+        USERS: 'cached_users',
+        ACTIVITIES: 'cached_activities',
+        DEPOSITS: 'cached_deposits'
       }
     };
 
-    // 缓存数据
+    // 全局数据缓存
     this.cache = {
+      lastUpdate: null,
+      sheetData: null,
       users: null,
-      lastUpdate: null
+      activities: null,
+      deposits: null
     };
+  }
+
+  /**
+   * 一次性加载所有表格数据
+   */
+  async loadAllSheetData() {
+    try {
+      console.log('开始加载所有表格数据...');
+
+      // 检查缓存是否有效
+      if (this.isValidCache()) {
+        console.log('使用缓存数据');
+        return this.cache.sheetData;
+      }
+
+      // 2. 定义所有需要读取的范围
+      const ranges = [
+        // Users表
+        `${this.SHEETS.USER}!A${this.SHEET_CONFIG.USER.DATA_START_ROW}:C`,
+        // Record表（包括固定列和交易记录）
+        `${this.SHEETS.RECORD}!A${this.SHEET_CONFIG.RECORD.DATA_START_ROW}:${this.SHEET_CONFIG.RECORD.TRANSACTIONS_END}`,
+        // Deposit表
+        `${this.SHEETS.DEPOSIT}!A${this.SHEET_CONFIG.DEPOSIT.DATA_START_ROW}:D`
+      ];
+
+      // 3. 并行读取所有数据
+      console.log('开始读取表格数据:', ranges);
+      const [usersData, recordData, depositData] = await Promise.all(
+        ranges.map(range => this.readSheet(range))
+      );
+
+      // 4. 处理和组织数据
+      const sheetData = {
+        users: this.processUsersData(usersData),
+        record: this.processRecordData(recordData),
+        deposits: this.processDepositsData(depositData)
+      };
+
+      // 5. 更新缓存
+      this.updateCache(sheetData);
+
+      console.log('所有数据加载完成');
+      return sheetData;
+    } catch (err) {
+      console.error('加载表格数据失败:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 处理用户数据
+   */
+  processUsersData(usersData) {
+    if (!usersData) return [];
+    return usersData
+      .filter(row => row[0])
+      .map(row => ({
+        wechatId: row[0],
+        pinyinName: row[1] || '',
+        openid: row[2] || '',
+        balance: '0.00'  // 初始化余额，后续会更新
+      }));
+  }
+
+  /**
+   * 处理Record表数据
+   */
+  processRecordData(recordData) {
+    if (!recordData) return { balances: {}, activities: [] };
+    
+    const balances = {};
+    const activities = [];
+
+    try {
+      // 1. 处理用户余额数据（前5列固定数据）
+      recordData.forEach((row, index) => {
+        if (index >= 5 && row[1]) {  // 从第6行开始是用户数据，B列是微信号
+          balances[row[1]] = row[3] || '0.00';  // D列是余额
+        }
+      });
+
+      // 2. 处理活动数据（从F列开始）
+      const FIXED_COLUMNS = 5; // A-E列是固定列
+      
+      // 获取活动基本信息行
+      const dateRow = recordData[0] || [];      // 第2行：活动日期 (M/DD/YYYY)
+      const venueRow = recordData[1] || [];     // 第3行：场地信息 (X号场 - XX人)
+      const timeRow = recordData[2] || [];      // 第4行：时间段 (HH:mm-HH:mm)
+      const feeRow = recordData[3] || [];       // 第5行：总费用
+      const participantRows = recordData.slice(5); // 从第6行开始是参与者数据
+
+      
+
+      // 从F列开始处理每个活动
+      for (let colIndex = FIXED_COLUMNS; colIndex < dateRow.length; colIndex++) {
+        // 1. 处理日期
+        const rawDate = dateRow[colIndex];
+        if (!rawDate || rawDate.toLowerCase() === 'cancelled') {
+          continue;
+        }
+
+        // 标准化日期格式
+        let date;
+        try {
+          // 处理两种可能的格式：M/DD/YYYY 或 YYYY-MM-DD
+          let year, month, day;
+          
+          // 尝试匹配 M/DD/YYYY 格式
+          const slashMatch = rawDate.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+          if (slashMatch) {
+            [, month, day, year] = slashMatch;
+          } else {
+            // 尝试匹配 YYYY-MM-DD 格式
+            const dashMatch = rawDate.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+            if (dashMatch) {
+              [, year, month, day] = dashMatch;
+            } else {
+              console.warn(`无法解析日期格式: ${rawDate}`);
+              continue;
+            }
+          }
+          
+          // 标准化为 YYYY-MM-DD 格式
+          date = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+        } catch (err) {
+          console.error('日期处理错误:', err);
+          continue;
+        }
+
+        // 2. 解析场地信息
+        const rawVenue = venueRow[colIndex] || '';
+        let venue = rawVenue, maxParticipants = 16; // 默认16人
+
+        // 尝试解析标准格式 "X号场 - XX人"
+        const venueMatch = rawVenue.match(/(\d+)号场\s*-\s*(\d+)人/);
+        if (venueMatch) {
+          const [, fieldNumber, capacity] = venueMatch;
+          venue = `${fieldNumber}号场`;
+          maxParticipants = parseInt(capacity) || 16;
+        } else {
+          // 尝试解析只有场地号的格式
+          const numberMatch = rawVenue.match(/^(\d+)$/);
+          if (numberMatch) {
+            venue = `${numberMatch[1]}号场`;
+          }
+          // 如果都无法解析，直接使用原始字符串
+        }
+
+        // 3. 解析时间段
+        const rawTimeSlot = timeRow[colIndex] || '';
+        if (!rawTimeSlot) {
+          continue;
+        }
+
+        // 分割并处理时间段
+        const timeParts = rawTimeSlot.split(/[-~]/);
+        if (timeParts.length !== 2) {
+          console.warn(`无效的时间段格式: ${rawTimeSlot}`);
+          continue;
+        }
+
+        // 处理开始和结束时间
+        const startTime = this.formatTime(timeParts[0]);
+        const endTime = this.formatTime(timeParts[1]);
+
+        if (!startTime || !endTime) {
+          console.warn(`无法解析时间段: ${rawTimeSlot}`);
+          continue;
+        }
+
+        const timeSlot = `${startTime}-${endTime}`;
+
+        // 4. 获取总费用
+        const totalFee = parseFloat(feeRow[colIndex] || 0);
+
+        // 5. 处理参与者
+        const participants = participantRows
+          .map((row, rowIndex) => {
+            const fee = parseFloat(row[colIndex] || 0);
+            if (fee <= 0) return null;
+            
+            return {
+              name: row[0] || '',        // A列：姓名
+              wechatId: row[1] || '',    // B列：微信号
+              fee: fee.toFixed(2),
+              signUpIndex: rowIndex + 1
+            };
+          })
+          .filter(Boolean);
+
+        // 创建活动对象
+        activities.push({
+          id: `activity_${colIndex}`,
+          date,                          // 标准化的日期 YYYY-MM-DD
+          displayDate: this.formatDisplayDate(date), // 显示用的日期格式
+          venue,                         // 场地信息（原始字符串或解析后的格式）
+          timeSlot,                      // 标准化的时间段 (HH:mm-HH:mm)
+          totalFee: totalFee.toFixed(2),
+          maxParticipants,              // 默认16人或解析出的人数
+          currentParticipants: participants.length,
+          perPersonFee: participants.length > 0 ? 
+            (totalFee / participants.length).toFixed(2) : '0.00',
+          participants,
+          status: this.getActivityStatus(date, timeSlot),
+          columnIndex: colIndex,
+          rawVenue,                      // 保存原始场地信息
+          displayTimeSlot: rawTimeSlot,  // 原始时间段
+        });
+      }
+
+      console.log('处理后的活动数据:', {
+        总数: activities.length,
+        示例: activities[0]
+      });
+
+      return { balances, activities };
+    } catch (err) {
+      console.error('处理Record表数据失败:', err);
+      return { balances: {}, activities: [] };
+    }
+  }
+
+  /**
+   * 处理时间段格式
+   * @param {string} rawTime - 原始时间字符串
+   * @returns {string} 标准化的24小时制时间 (HH:mm)
+   */
+  formatTime(rawTime) {
+    if (!rawTime) return '';
+    
+    // 移除所有空格
+    rawTime = rawTime.replace(/\s+/g, '');
+    
+    // 1. 处理4位数格式 "1030" -> "22:30"
+    if (/^\d{4}$/.test(rawTime)) {
+      const hours = parseInt(rawTime.slice(0, 2));
+      const minutes = rawTime.slice(2);
+      return `${hours.toString().padStart(2, '0')}:${minutes}`;
+    }
+    
+    // 2. 处理1-2位数格式 "9" -> "21:00"
+    if (/^\d{1,2}$/.test(rawTime)) {
+      const hours = parseInt(rawTime);
+      return `${(hours + 12).toString().padStart(2, '0')}:00`;
+    }
+    
+    // 3. 如果已经是标准格式 "22:30"，直接返回
+    if (/^\d{1,2}:\d{2}$/.test(rawTime)) {
+      return rawTime.padStart(5, '0');
+    }
+    
+    return rawTime;
+  }
+
+  /**
+   * 格式化显示用的日期
+   */
+  formatDisplayDate(isoDate) {
+    try {
+      if (!isoDate) return '';
+
+      // 确保日期格式为 YYYY-MM-DD
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) {
+        console.warn('日期格式不正确:', isoDate);
+        return isoDate;
+      }
+
+      const [year, month, day] = isoDate.split('-').map(Number);
+      
+      // 创建日期对象（使用 UTC 来避免时区问题）
+      const date = new Date(Date.UTC(year, month - 1, day));
+      
+      if (isNaN(date.getTime())) {
+        console.warn('无效的日期:', isoDate);
+        return isoDate;
+      }
+
+      return `${month}月${day}日`;
+    } catch (err) {
+      console.error('日期格式化失败:', err, isoDate);
+      return isoDate;
+    }
+  }
+
+  /**
+   * 获取活动状态
+   */
+  getActivityStatus(date, timeSlot) {
+    try {
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        console.warn('无效的日期格式:', date);
+        return 'unknown';
+      }
+
+      const now = new Date();
+      const [year, month, day] = date.split('-').map(Number);
+      const activityDate = new Date(Date.UTC(year, month - 1, day));
+      
+      if (isNaN(activityDate.getTime())) {
+        console.warn('无效的日期:', date);
+        return 'unknown';
+      }
+
+      // 设置为当地时间的0点
+      activityDate.setHours(0, 0, 0, 0);
+      
+      if (timeSlot) {
+        const [startTime] = timeSlot.split('-');
+        if (startTime && /^\d{2}:\d{2}$/.test(startTime)) {
+          const [hours, minutes] = startTime.split(':').map(Number);
+          activityDate.setHours(hours, minutes);
+        }
+      }
+
+      const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      if (activityDate < nowDate) {
+        return 'completed';
+      } else if (activityDate > nowDate) {
+        return 'upcoming';
+      } else {
+        // 同一天，检查具体时间
+        if (now < activityDate) {
+          return 'upcoming';
+        } else if (now > activityDate) {
+          return 'completed';
+        } else {
+          return 'ongoing';
+        }
+      }
+    } catch (err) {
+      console.error('活动状态判断失败:', err);
+      return 'unknown';
+    }
+  }
+
+  /**
+   * 处理充值记录数据
+   */
+  processDepositsData(depositData) {
+    if (!depositData) return [];
+    return depositData
+      .filter(row => row[0] && row[1])
+      .map(row => ({
+        date: row[0],
+        wechatId: row[1],
+        amount: row[2],
+        method: row[3]
+      }));
+  }
+
+  /**
+   * 检查缓存是否有效
+   */
+  isValidCache() {
+    return (
+      this.cache.lastUpdate &&
+      this.cache.sheetData &&
+      Date.now() - this.cache.lastUpdate < this.CACHE_CONFIG.EXPIRE_TIME
+    );
+  }
+
+  /**
+   * 更新缓存
+   */
+  updateCache(sheetData) {
+    this.cache = {
+      lastUpdate: Date.now(),
+      sheetData,
+      users: sheetData.users,
+      activities: sheetData.record.activities,
+      deposits: sheetData.deposits
+    };
+    
+    // 更新本地存储
+    wx.setStorageSync(this.CACHE_CONFIG.KEYS.SHEET_DATA, {
+      data: sheetData,
+      timestamp: this.cache.lastUpdate
+    });
+  }
+
+  /**
+   * 获取用户数据（使用缓存）
+   */
+  async getUsers() {
+    try {
+      const sheetData = await this.loadAllSheetData();
+      const users = sheetData.users.map(user => ({
+        ...user,
+        balance: sheetData.record.balances[user.wechatId] || '0.00'
+      }));
+      return users;
+    } catch (err) {
+      console.error('获取用户数据失败:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 加载用户交易记录（使用缓存）
+   */
+  async loadUserTransactions(wechatId) {
+    try {
+      const sheetData = await this.loadAllSheetData();
+      const transactions = [];
+
+      // 添加活动记录
+      if (sheetData.record.activities) {
+        transactions.push(...sheetData.record.activities
+          .filter(t => t.wechatId === wechatId)
+          .map(t => ({
+            type: 'expense',
+            date: t.date,
+            amount: Math.abs(t.amount).toFixed(2),
+            displayTitle: t.title || '活动消费'
+          })));
+      }
+
+      // 添加充值记录
+      if (sheetData.deposits) {
+        transactions.push(...sheetData.deposits
+          .filter(d => d.wechatId === wechatId)
+          .map(d => ({
+            type: 'deposit',
+            date: d.date,
+            amount: parseFloat(d.amount || 0).toFixed(2),
+            displayTitle: `充值 - ${d.method === 'Cash' ? '现金充值' : '电子转账'}`
+          })));
+      }
+
+      // 按日期排序
+      return transactions.sort((a, b) => new Date(b.date) - new Date(a.date));
+    } catch (err) {
+      console.error('加载用户交易记录失败:', err);
+      throw err;
+    }
   }
 
   /**
@@ -692,150 +1142,62 @@ class SheetsAPI {
   }
 
   /**
-   * 获取所有用户列表
+   * 统一的活动数据处理方法
    */
-  async getAllUsers() {
-    const range = `${this.SHEETS.RECORD}!A2:E`;  // 从第2行开始,跳过表头
-    const values = await this.readSheet(range);
-    
-    return values.map(row => ({
-      name: row[0],
-      wechat: row[1],
-      deposit: parseFloat(row[2] || 0),
-      balance: parseFloat(row[3] || 0),
-      spentYTD: parseFloat(row[4] || 0)
-    })).filter(user => user.wechat); // 过滤掉空行
-  }
-
-  /**
-   * 获取所有活动列表
-   * @param {number} limit - 最近几次活动，默认20次
-   */
-  async getActivities(limit = 20) {
+  async getActivities(options = {}) {
     try {
-      // 读取活动信息区域 (F2:HU5)
-      const range = `${this.SHEETS.RECORD}!F2:HU5`;
-      console.log('正在读取活动数据, 范围:', range);
-      
-      const values = await this.readSheet(range);
-      console.log('读取到的原始数据:', values);
-      
-      if (!values || values.length < 4) {
-        console.error('活动数据格式不正确');
+      const {
+        wechatId = '',      // 指定用户的活动
+        limit = 20,         // 限制返回数量
+        includeDetails = false,  // 是否包含详细信息
+        status = 'all'      // 活动状态筛选
+      } = options;
+
+      // 使用缓存的数据
+      const sheetData = await this.loadAllSheetData();
+      if (!sheetData?.record?.activities) {
+        console.warn('未找到活动数据');
         return [];
       }
 
-      const [dates, fields, timeSlots, fees] = values;
-      
-      // 获取参与者数据
-      const participantsRange = `${this.SHEETS.RECORD}!A:HU`;
-      const allData = await this.readSheet(participantsRange);
-      console.log('读取到的完整数据:', allData);
+      let activities = sheetData.record.activities;
 
-      // 从第9行开始是用户数据
-      const userData = allData.slice(8);
+      // 1. 用户筛选
+      if (wechatId) {
+        activities = activities.filter(activity => {
+          const participants = activity.participants || [];
+          return participants.some(p => p.wechatId === wechatId);
+        });
+      }
 
-      // 处理成活动卡片需要的格式
-      const DEFAULT_MAX_PARTICIPANTS = 16; // 设置默认最大参与人数
-      const activities = dates.map((date, index) => {
-        // 如果日期为空或者为 'cancelled'，跳过这个活动
-        if (!date || date === 'cancelled') return null;
-
-        // 解析场地和人数信息
-        const fieldInfo = fields[index] || '';
-        let field = '', maxParticipants = DEFAULT_MAX_PARTICIPANTS;
-
-        if (fieldInfo) {
-          const matches = fieldInfo.match(/(\d+)号场\s*-\s*(\d+)人/);
-          if (matches) {
-            field = matches[1];
-            maxParticipants = parseInt(matches[2], 10);
-          } else {
-            field = fieldInfo;
-          }
-        }
-
-        // 计算列标识（从F开始）
-        const columnLetter = String.fromCharCode(70 + index); // F的ASCII码是70
-
-        // 计算参与者
-        const participants = userData
-          .filter(row => {
-            const fee = parseFloat(row[this.FEE_START_COLUMN - 1 + index] || 0);
-            return fee > 0;
-          })
-          .map((row, signUpIndex) => ({
-            name: row[0] || '',
-            wechat: row[1] || '',
-            fee: parseFloat(row[this.FEE_START_COLUMN - 1 + index] || 0),
-            signUpNumber: signUpIndex + 1,
-            rowIndex: 9 + signUpIndex,
-            checkedIn: true  // 付费即视为签到
-          }))
-          .filter(p => p.wechat && p.fee > 0);
-
-        // 计算总费用和人均费用
-        const totalFee = parseFloat(fees[index] || 0);
-        const perPersonFee = participants.length > 0 ? 
-          Math.round((totalFee / participants.length) * 100) / 100 : 0;
-
-        // 格式化日期
-        const dateObj = new Date(date.replace(/(\d+)\/(\d+)\/(\d+)/, '$3/$1/$2'));
-        const month = dateObj.getMonth() + 1;
-        const day = dateObj.getDate();
-        const displayDate = `${month}月${day}日`;
-        const isUpcoming = dateObj > new Date();
-        const status = isUpcoming ? 'upcoming' : 'completed';
-
-        // 生成活动名称
-        const name = `${displayDate} - 足球`;
-
-        // 生成唯一ID
-        const uniqueId = [
-          date.replace(/\//g, ''),
-          field || 'nf',
-          timeSlots[index]?.replace(/[:-]/g, '') || 'nt',
-          index.toString().padStart(3, '0')
-        ].join('-');
-
-        return {
-          id: uniqueId,
-          name: name,
-          date: date,
-          displayDate: displayDate,
-          field: field,
-          maxParticipants: maxParticipants,
-          startTime: timeSlots[index]?.split('-')[0] || '',
-          endTime: timeSlots[index]?.split('-')[1] || '',
-          totalFee: totalFee,
-          perPersonFee: perPersonFee,
-          participants: participants,
-          participantCount: participants.length,
-          status: status,
-          type: '足球',
-          coverImage: '/assets/images/covers/default.webp',
-          column: columnLetter,  // 添加列标识
-          isFull: participants.length >= maxParticipants
+      // 2. 状态筛选
+      if (status !== 'all') {
+        const statusFunc = (activity) => {
+          const date = activity.date;
+          const timeSlot = activity.timeSlot;
+          return this.getActivityStatus(date, timeSlot);
         };
-      })
-      .filter(activity => {
-        if (!activity) return false;
-        if (!activity.date) return false;
-        if (!activity.totalFee || activity.totalFee <= 0) return false;
-        if (!activity.participants || !Array.isArray(activity.participants)) return false;
-        return true;
-      })
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, limit);
+        activities = activities.filter(activity => statusFunc(activity) === status);
+      }
 
-      console.log('处理后的活动数据:', activities.map(a => ({
-        id: a.id,
-        name: a.name,
-        participantCount: a.participantCount,
-        perPersonFee: a.perPersonFee,
-        column: a.column,
-        status: a.status
-      })));
+      // 3. 添加详细信息
+      if (includeDetails) {
+        activities = activities.map(activity => ({
+          ...activity,
+          participants: this.processParticipants(activity.participants || []),
+          stats: this.calculateActivityStats(activity)
+        }));
+      }
+
+      // 4. 按日期排序并限制数量
+      activities = activities
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .slice(0, limit);
+
+      console.log('处理后的活动数据:', {
+        总数: activities.length,
+        示例: activities[0]
+      });
 
       return activities;
     } catch (err) {
@@ -1674,196 +2036,111 @@ class SheetsAPI {
   }
 
   /**
-   * 获取用户数据（优先从缓存获取）
+   * 根据 OpenID 查找用户
    */
-  async getUsers() {
+  async findUserByOpenId(openid) {
     try {
-      // 1. 检查缓存是否存在且未过期
-      const now = Date.now();
-      if (this.cache.users && this.cache.lastUpdate && 
-          (now - this.cache.lastUpdate < this.CACHE_CONFIG.USERS.EXPIRE_TIME)) {
-        console.log('从缓存获取用户数据');
-        return this.cache.users;
-      }
-
-      // 2. 从本地存储检查
-      const cachedData = wx.getStorageSync(this.CACHE_CONFIG.USERS.KEY);
-      if (cachedData && cachedData.timestamp && 
-          (now - cachedData.timestamp < this.CACHE_CONFIG.USERS.EXPIRE_TIME)) {
-        console.log('从本地存储获取用户数据');
-        this.cache.users = cachedData.data;
-        this.cache.lastUpdate = cachedData.timestamp;
-        return cachedData.data;
-      }
-
-      // 3. 从服务器获取新数据
-      console.log('从服务器获取用户数据');
-      const userRange = `${this.SHEETS.USER}!A2:D`;  // 包含余额列
-      const userData = await this.readSheet(userRange);
-      
-      if (!userData) return [];
-
-      // 4. 处理数据
-      const users = userData.map(row => ({
-        wechatId: row[0] || '',
-        pinyinName: row[1] || '',
-        openid: row[2] || '',
-        balance: parseFloat(row[3] || 0).toFixed(2)
-      })).filter(user => user.wechatId);  // 过滤掉无效数据
-
-      // 5. 更新缓存
-      this.cache.users = users;
-      this.cache.lastUpdate = now;
-
-      // 6. 保存到本地存储
-      wx.setStorageSync(this.CACHE_CONFIG.USERS.KEY, {
-        data: users,
-        timestamp: now
-      });
-
-      return users;
-    } catch (err) {
-      console.error('获取用户数据失败:', err);
-      // 如果有缓存数据，在出错时返回缓存
-      if (this.cache.users) {
-        return this.cache.users;
-      }
-      throw err;
-    }
-  }
-
-  /**
-   * 搜索匹配用户（使用缓存）
-   */
-  async searchUsers(keyword) {
-    try {
-      // 1. 获取所有用户数据（优先使用缓存）
+      console.log('开始查找用户, OpenID:', openid);
       const users = await this.getUsers();
-      
-      // 2. 在本地进行搜索
-      const matchedUsers = users.filter(user => 
-        user.wechatId.toLowerCase().includes(keyword.toLowerCase())
-      );
-
-      console.log('搜索结果:', {
-        关键词: keyword,
-        匹配数量: matchedUsers.length,
-        示例: matchedUsers[0]
-      });
-
-      return matchedUsers;
+      const user = users.find(user => user.openid === openid);
+      console.log('查找结果:', user);
+      return user || null;
     } catch (err) {
-      console.error('搜索用户失败:', err);
+      console.error('查找用户失败:', err);
       throw err;
     }
   }
 
   /**
-   * 清除用户数据缓存
+   * 处理参与者数据
    */
-  clearUsersCache() {
-    this.cache.users = null;
-    this.cache.lastUpdate = null;
-    wx.removeStorageSync(this.CACHE_CONFIG.USERS.KEY);
+  processParticipants(participants) {
+    if (!Array.isArray(participants)) return [];
+    
+    return participants.map((participant, index) => ({
+      ...participant,
+      signUpOrder: index + 1,
+      displayName: participant.name || participant.wechatId
+    }));
   }
 
   /**
-   * 强制刷新用户数据
+   * 计算活动统计数据
    */
-  async refreshUsers() {
-    this.clearUsersCache();
-    return await this.getUsers();
-  }
+  calculateActivityStats(activity) {
+    const stats = {
+      totalParticipants: 0,
+      totalFee: 0,
+      averageFee: 0,
+      isFull: false,
+      remainingSlots: 0
+    };
 
-  /**
-   * 更新用户的 OpenID
-   * @param {string} wechatId 用户微信ID
-   * @param {string} openid 用户OpenID
-   */
-  async updateUserOpenId(wechatId, openid) {
-    try {
-      // 1. 从缓存获取用户数据
-      const users = await this.getUsers();
-      
-      // 2. 查找用户索引
-      const userIndex = users.findIndex(user => user.wechatId === wechatId);
-      if (userIndex === -1) {
-        throw new Error('用户不存在');
-      }
+    if (!activity) return stats;
 
-      // 3. 更新 OpenID
-      const updateRange = `${this.SHEETS.USER}!C${userIndex + 2}`;  // +2 是因为跳过表头
-      await this.writeSheet(updateRange, [[openid]]);
+    const participants = activity.participants || [];
+    stats.totalParticipants = participants.length;
+    stats.totalFee = parseFloat(activity.totalFee || 0);
+    stats.averageFee = stats.totalParticipants > 0 ? 
+      (stats.totalFee / stats.totalParticipants).toFixed(2) : 0;
+    stats.isFull = stats.totalParticipants >= (activity.maxParticipants || 16);
+    stats.remainingSlots = Math.max(0, 
+      (activity.maxParticipants || 16) - stats.totalParticipants);
 
-      // 4. 更新缓存
-      users[userIndex].openid = openid;
-      this.cache.users = users;
-      wx.setStorageSync(this.CACHE_CONFIG.USERS.KEY, {
-        data: users,
-        timestamp: Date.now()
-      });
-
-      console.log('OpenID更新成功:', {
-        wechatId,
-        openid,
-        updateRange
-      });
-
-      return true;
-    } catch (err) {
-      console.error('更新用户OpenID失败:', err);
-      throw err;
-    }
+    return stats;
   }
 
   /**
    * 创建新用户
-   * @param {Object} userData 用户数据
-   * @param {string} userData.wechatId 微信ID
-   * @param {string} userData.openid OpenID
+   * @param {Object} userData - 用户数据
+   * @param {string} userData.wechatId - 微信名称
+   * @param {string} userData.openid - OpenID
+   * @returns {Promise<Object>} - 创建的用户数据
    */
   async createNewUser(userData) {
     try {
-      // 1. 获取现有用户数据
-      const users = await this.getUsers();
-      
-      // 2. 检查是否已存在
-      if (users.some(user => user.wechatId === userData.wechatId)) {
-        throw new Error('用户已存在');
+      if (!userData || !userData.wechatId || !userData.openid) {
+        throw new Error('无效的用户数据');
       }
 
-      // 3. 添加新用户
-      const newRow = [
-        userData.wechatId,
-        '',  // pinyinName
-        userData.openid,
-        '0.00'  // 初始余额
+      console.log('开始创建新用户:', userData);
+
+      // 1. 获取Users表的最后一行
+      const range = `${this.SHEETS.USER}!A:C`;
+      const existingData = await this.readSheet(range);
+      const lastRow = existingData ? existingData.length + 1 : 2; // 如果没有数据，从第2行开始
+
+      // 2. 准备新用户数据
+      const newUserData = [
+        userData.wechatId,           // A列：微信名称
+        userData.pinyinName || '',   // B列：拼音名称（可选）
+        userData.openid             // C列：OpenID
       ];
 
-      const insertRange = `${this.SHEETS.USER}!A${users.length + 2}`;  // +2 是因为跳过表头
-      await this.writeSheet(insertRange, [newRow]);
+      // 3. 写入新用户数据
+      const updateRange = `${this.SHEETS.USER}!A${lastRow}:C${lastRow}`;
+      await this.writeSheet(updateRange, [newUserData]);
 
-      // 4. 更新缓存
-      const newUser = {
+      // 4. 清除缓存，强制重新加载
+      this.cache = {
+        lastUpdate: null,
+        sheetData: null,
+        users: null,
+        activities: null,
+        deposits: null
+      };
+
+      // 5. 返回创建的用户数据
+      const createdUser = {
         wechatId: userData.wechatId,
-        pinyinName: '',
+        pinyinName: userData.pinyinName || '',
         openid: userData.openid,
         balance: '0.00'
       };
-      
-      users.push(newUser);
-      this.cache.users = users;
-      wx.setStorageSync(this.CACHE_CONFIG.USERS.KEY, {
-        data: users,
-        timestamp: Date.now()
-      });
 
-      console.log('新用户创建成功:', {
-        userData,
-        insertRange
-      });
+      console.log('新用户创建成功:', createdUser);
+      return createdUser;
 
-      return true;
     } catch (err) {
       console.error('创建新用户失败:', err);
       throw err;
@@ -1871,112 +2148,44 @@ class SheetsAPI {
   }
 
   /**
-   * 查找用户所在行号
-   * @param {string} wechatId 用户微信ID
-   * @returns {Promise<number|null>} 行号（从1开始）或null
+   * 写入数据到表格
+   * @param {string} range - 写入范围
+   * @param {Array<Array>} values - 要写入的数据
    */
-  async findUserRow(wechatId) {
+  async writeSheet(range, values) {
     try {
-      // 1. 从缓存获取用户数据
-      const users = await this.getUsers();
-      
-      // 2. 查找用户索引
-      const userIndex = users.findIndex(user => user.wechatId === wechatId);
-      
-      // 3. 返回行号（索引+2，因为要跳过表头）
-      return userIndex > -1 ? userIndex + 2 : null;
-    } catch (err) {
-      console.error('查找用户行号失败:', err);
-      throw err;
-    }
-  }
-
-  /**
-   * 加载用户的所有交易记录
-   * @param {string} wechatId 用户微信ID
-   */
-  async loadUserTransactions(wechatId) {
-    try {
-      // 1. 获取用户在Record表中的行号
-      const userRow = await this.findUserRow(wechatId);
-      if (!userRow) {
-        throw new Error('找不到用户记录');
+      if (!this.accessToken) {
+        await this.getAccessToken();
       }
 
-      // 2. 获取活动日期行（第2行）
-      const dateRange = `${this.SHEETS.RECORD}!${this.SHEET_CONFIG.RECORD.TRANSACTIONS_START}2:${this.SHEET_CONFIG.RECORD.TRANSACTIONS_END}2`;
-      const dateRow = await this.readSheet(dateRange);
-      if (!dateRow || !dateRow[0]) {
-        throw new Error('无法读取日期行');
-      }
-
-      // 3. 获取用户的活动记录行
-      const activityRange = `${this.SHEETS.RECORD}!${this.SHEET_CONFIG.RECORD.TRANSACTIONS_START}${userRow}:${this.SHEET_CONFIG.RECORD.TRANSACTIONS_END}${userRow}`;
-      const activityRow = await this.readSheet(activityRange);
+      const url = `${this.baseUrl}/${this.spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`;
       
-      // 4. 获取用户的充值记录
-      const depositRange = `${this.SHEETS.DEPOSIT}!A2:D`;
-      const depositData = await this.readSheet(depositRange);
-
-      // 5. 处理活动记录
-      const activities = [];
-      if (activityRow && activityRow[0]) {
-        activityRow[0].forEach((value, index) => {
-          if (value) {
-            const date = dateRow[0][index];
-            if (date) {
-              // 判断是否为报名序号（整数且小于100）
-              const amount = parseFloat(value);
-              if (!Number.isInteger(amount) || amount >= 100 || amount <= 0) {
-                const formattedDate = this.formatDate(date);
-                if (formattedDate) {
-                  activities.push({
-                    type: 'expense',
-                    date: formattedDate,
-                    amount: Math.abs(amount).toFixed(2),
-                    displayTitle: `${formattedDate} - 消费`
-                  });
-                }
-              }
+      return new Promise((resolve, reject) => {
+        wx.request({
+          url,
+          method: 'PUT',
+          header: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          data: {
+            range: range,
+            majorDimension: 'ROWS',
+            values: values
+          },
+          success: (res) => {
+            if (res.statusCode === 200) {
+              console.log('数据写入成功:', range);
+              resolve(res.data);
+            } else {
+              reject(new Error(`写入失败: ${res.statusCode}`));
             }
-          }
+          },
+          fail: reject
         });
-      }
-
-      // 6. 处理充值记录
-      const deposits = [];
-      if (depositData) {
-        depositData.forEach(row => {
-          if (row[1] === wechatId && row[0]) {  // 确保有日期和匹配的微信ID
-            const formattedDate = this.formatDate(row[0]);
-            if (formattedDate) {
-              deposits.push({
-                type: 'deposit',
-                date: formattedDate,
-                amount: parseFloat(row[2] || 0).toFixed(2),
-                displayTitle: `充值 - ${row[3] === 'Cash' ? '现金充值' : '电子转账'}`
-              });
-            }
-          }
-        });
-      }
-
-      // 7. 合并并按日期排序
-      const allTransactions = [...activities, ...deposits].sort((a, b) => {
-        return new Date(b.date) - new Date(a.date);
       });
-
-      console.log('交易记录统计:', {
-        总记录: allTransactions.length,
-        活动记录: activities.length,
-        充值记录: deposits.length,
-        示例记录: allTransactions[0]
-      });
-
-      return allTransactions;
-
     } catch (err) {
-      console.error('加载用户交易记录失败:', err);
+      console.error('写入表格失败:', err);
       throw err;
     }
   }

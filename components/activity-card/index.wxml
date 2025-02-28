@@ -14,15 +14,15 @@
 
     <view class="card-content">
       <view class="info-row">
-        <view class="field-info" wx:if="{{activity.field}}">
+        <view class="field-info" wx:if="{{activity.venue}}">
           <text class="label">场地</text>
-          <text class="value">{{activity.field}}号</text>
+          <text class="value">{{activity.venue}}</text>
         </view>
 
         <view class="participants-info">
           <text class="label">已报名</text>
           <view class="value {{participantStatus}}">
-            <text>{{activity.participantCount}}</text>
+            <text>{{participantCount}}</text>
             <text class="separator">/</text>
             <text>{{activity.maxParticipants}}</text>
           </view>
@@ -39,14 +39,14 @@
   <!-- 底部操作区域 -->
   <view class="footer">
     <view class="participants">
-      已报名: {{activity.participantCount}}/{{activity.maxParticipants}}
+      已报名: {{participantCount}}/{{activity.maxParticipants}}
     </view>
     <button 
       class="sign-up-btn"
       bindtap="onSignUp"
-      disabled="{{activity.isFull}}"
+      disabled="{{participantCount >= activity.maxParticipants}}"
     >
-      {{activity.isFull ? '已满员' : '立即报名'}}
+      {{participantCount >= activity.maxParticipants ? '已满员' : '立即报名'}}
     </button>
   </view>
 </view> 

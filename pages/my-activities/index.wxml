@@ -1,63 +1,45 @@
 <view class="container">
-  <!-- 用户信息 -->
+  <!-- 用户信息区域 -->
   <view class="user-info">
     <view class="avatar-container">
-      <image class="avatar" src="{{userInfo.avatarUrl || '/assets/icons/default-avatar.png'}}" mode="aspectFill"></image>
+      <image class="avatar" src="/assets/icons/default-avatar.png" mode="aspectFill"></image>
+      <text class="username">{{userName || '微信用户'}}</text>
     </view>
-    <view class="user-details">
-      <view class="nickname">{{userInfo.nickName || '微信用户'}}</view>
-      <view class="user-actions">
-        <block wx:if="{{!hasUserInfo && canIUseGetUserProfile}}">
-          <button class="auth-btn" bindtap="getUserProfile">授权获取头像昵称</button>
-        </block>
-        <view class="logout-btn" bindtap="logout">退出登录</view>
+    <view class="balance-info">
+      <view class="balance-item">
+        <text class="label">余额</text>
+        <text class="amount">¥{{balance}}</text>
+      </view>
+      <view class="balance-item">
+        <text class="label">年度消费</text>
+        <text class="amount">¥{{ytdSpent}}</text>
       </view>
     </view>
-  </view>
-
-  <!-- 用户资金信息 -->
-  <view class="user-finance">
-    <view class="finance-card balance">
-      <view class="card-title">账户余额</view>
-      <view class="card-amount">¥{{balance}}</view>
-    </view>
-    <view class="finance-card spent">
-      <view class="card-title">年度消费</view>
-      <view class="card-amount">¥{{ytdSpent}}</view>
-    </view>
-  </view>
-
-  <!-- 交易记录标题 -->
-  <view class="section-title">
-    <text>交易记录</text>
   </view>
 
   <!-- 交易记录列表 -->
-  <view class="transaction-list">
-    <view wx:for="{{transactions}}" 
-          wx:key="index" 
-          class="transaction-item {{item.type}}">
-      <view class="trans-info">
-        <text class="trans-type">{{item.displayTitle}}</text>
-        <text class="trans-date">{{item.date}}</text>
-      </view>
-      <text class="trans-amount {{item.type}}">
-        {{item.type === 'deposit' ? '+' : '-'}}¥{{item.amount}}
-      </text>
-    </view>
-    <view wx:if="{{transactions.length === 0}}" class="no-data">
-      暂无交易记录
+  <view class="transactions-container">
+    <view class="transactions-title">交易记录</view>
+    <view class="transactions-list">
+      <block wx:if="{{transactions.length > 0}}">
+        <view class="transaction-item {{item.type}}" wx:for="{{transactions}}" wx:key="index">
+          <view class="transaction-info">
+            <text class="transaction-title">{{item.displayTitle}}</text>
+            <text class="transaction-date">{{item.date}}</text>
+          </view>
+          <text class="transaction-amount {{item.type === 'deposit' ? 'positive' : 'negative'}}">
+            {{item.type === 'deposit' ? '+' : '-'}}¥{{item.amount}}
+          </text>
+        </view>
+      </block>
+      <view wx:else class="no-data">暂无交易记录</view>
     </view>
   </view>
 
-  <!-- 活动列表 -->
-  <view class="activity-list">
-    <activity-card 
-      wx:for="{{activities}}" 
-      wx:key="id"
-      activity="{{item}}"
-      bindtap="goToDetail"
-      data-id="{{item.id}}"
-    />
+  <!-- 加载状态 -->
+  <view class="loading" wx:if="{{isLoading}}">
+    <text>加载中...</text>
   </view>
+
+  
 </view> 

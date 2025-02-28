@@ -1,10 +1,126 @@
 .container {
+  margin-top: 200rpx;
+  padding: 30rpx;
+  background: #f5f5f5;
   min-height: 100vh;
-  background: #f7f7f7;
-  padding: 20rpx;
-  box-sizing: border-box;
-  width: 100%;
-  overflow-x: hidden;  /* 防止水平滚动 */
+}
+
+.user-info {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 30rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+.avatar-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 30rpx;
+}
+
+.avatar {
+  width: 100rpx;
+  height: 100rpx;
+  border-radius: 50%;
+  margin-right: 20rpx;
+}
+
+.username {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.balance-info {
+  display: flex;
+  justify-content: space-between;
+}
+
+.balance-item {
+  flex: 1;
+  text-align: center;
+}
+
+.label {
+  font-size: 28rpx;
+  color: #666;
+  margin-bottom: 10rpx;
+  display: block;
+}
+
+.amount {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.transactions-container {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.1);
+}
+
+.transactions-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 20rpx;
+}
+
+.transaction-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx 0;
+  border-bottom: 1rpx solid #eee;
+}
+
+.transaction-item:last-child {
+  border-bottom: none;
+}
+
+.transaction-info {
+  flex: 1;
+}
+
+.transaction-title {
+  font-size: 28rpx;
+  color: #333;
+  display: block;
+}
+
+.transaction-date {
+  font-size: 24rpx;
+  color: #999;
+  margin-top: 6rpx;
+  display: block;
+}
+
+.transaction-amount {
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+.transaction-amount.positive {
+  color: #07c160;
+}
+
+.transaction-amount.negative {
+  color: #ff4d4f;
+}
+
+.no-data {
+  text-align: center;
+  color: #999;
+  padding: 40rpx 0;
+}
+
+.loading {
+  text-align: center;
+  padding: 40rpx 0;
+  color: #666;
 }
 
 .tabs {
@@ -132,30 +248,6 @@
 }
 
 /* 用户信息卡片 */
-.user-info {
-  display: flex;
-  align-items: center;
-  padding: 32rpx;
-  background: #fff;
-  margin: 24rpx;
-  border-radius: 16rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
-  position: relative;
-}
-
-.avatar-container {
-  margin-right: 24rpx;
-  position: relative;
-}
-
-.avatar {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 60rpx;
-  border: 2rpx solid #f0f0f0;
-  background: #f5f5f5;
-}
-
 .user-details {
   flex: 1;
 }
@@ -255,54 +347,6 @@
   border-radius: 16rpx;
   padding: 0;
   box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.05);
-}
-
-.transaction-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24rpx;
-  border-bottom: 1rpx solid #f5f5f5;
-}
-
-.transaction-item:last-child {
-  border-bottom: none;
-}
-
-.trans-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8rpx;
-}
-
-.trans-type {
-  font-size: 28rpx;
-  color: #333;
-}
-
-.trans-date {
-  font-size: 24rpx;
-  color: #999;
-}
-
-.trans-amount {
-  font-size: 32rpx;
-  font-weight: 500;
-}
-
-.trans-amount.deposit {
-  color: #1AAD19;
-}
-
-.trans-amount.expense {
-  color: #ff4d4f;
-}
-
-.no-data {
-  text-align: center;
-  padding: 48rpx 0;
-  color: #999;
-  font-size: 28rpx;
 }
 
 .activity-item {

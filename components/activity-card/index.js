@@ -7,11 +7,10 @@ Component({
       type: Object,
       value: {
         displayDate: '',
-        startTime: '',
-        endTime: '',
+        timeSlot: '',
         status: 'completed',
-        field: '',
-        participantCount: 0,
+        venue: '',
+        participants: [],
         maxParticipants: 16,
         perPersonFee: '0.00',
         bgImage: '/assets/images/covers/default.webp',
@@ -21,9 +20,20 @@ Component({
     }
   },
 
+  data: {
+    participantCount: 0,
+    participantStatus: ''
+  },
+
   observers: {
-    'activity.participantCount, activity.maxParticipants': function(count, max) {
+    'activity': function(activity) {
+      if (!activity) return;
+      
+      const count = activity.participants?.length || 0;
+      const max = activity.maxParticipants || 16;
+      
       this.setData({
+        participantCount: count,
         participantStatus: this.getParticipantStatus(count, max)
       });
     }

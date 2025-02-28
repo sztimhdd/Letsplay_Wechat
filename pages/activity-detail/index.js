@@ -2,6 +2,13 @@ const { users: mockUsers } = require('../../mock/users');
 const app = getApp();
 import { signUpService } from '../../services/signup-service';
 
+function parseTimeSlot(timeSlot) {
+  if (!timeSlot) return { startTime: '', endTime: '' };
+  
+  const [startTime, endTime] = timeSlot.split('-').map(t => t.trim());
+  return { startTime, endTime };
+}
+
 Page({
   data: {
     activity: null,  // 当前显示的活动
@@ -36,11 +43,15 @@ Page({
           throw new Error('活动不存在');
         }
 
+        // 解析时间段
+        const { startTime, endTime } = parseTimeSlot(activity.timeSlot);
+        
         // 检查是否可以取消报名（活动开始前2小时内不能取消）
         let canCancel = false;
         try {
           const activityDate = new Date(activity.date.replace(/(\d+)\/(\d+)\/(\d+)/, '$3/$1/$2'));
-          const [startTime] = activity.startTime.split('-');
+          
+          // 使用解析后的开始时间
           const [hours, minutes] = startTime.split(':');
           
           activityDate.setHours(parseInt(hours), parseInt(minutes));
@@ -57,11 +68,16 @@ Page({
         const currentUser = await app.getCurrentUser();
         const hasJoined = currentUser && activity.participants?.some(p => p.wechat === currentUser.wechat);
 
-        // 添加状态文本
-        activity.statusText = this.getStatusText(activity.status);
+        // 扩展活动数据
+        const enrichedActivity = {
+          ...activity,
+          startTime,
+          endTime,
+          statusText: this.getStatusText(activity.status)
+        };
 
         this.setData({
-          activity,
+          activity: enrichedActivity,
           loading: false,
           hasJoined,
           canCancel,
@@ -320,31 +336,37 @@ Page({
 
   // 添加检查活动状态的方法
   checkActivityStatus: function() {
+    if (!this.data.activity) return;
+    
     const now = new Date();
     const activityDate = new Date(this.data.activity.date.replace(/-/g, '/'));
     
-    // 设置活动的开始和结束时间
-    const startTimeArr = this.data.activity.startTime.split(':');
-    const endTimeArr = this.data.activity.endTime.split(':');
+    // 从 timeSlot 解析时间
+    const { startTime, endTime } = parseTimeSlot(this.data.activity.timeSlot);
+    if (!startTime || !endTime) return;
     
-    const startTime = new Date(activityDate);
-    startTime.setHours(startTimeArr[0], startTimeArr[1], 0);
+    const [startHour, startMinute] = startTime.split(':');
+    const [endHour, endMinute] = endTime.split(':');
     
-    const endTime = new Date(activityDate);
-    endTime.setHours(endTimeArr[0], endTimeArr[1], 0);
+    const startDateTime = new Date(activityDate);
+    startDateTime.setHours(parseInt(startHour), parseInt(startMinute), 0);
+    
+    const endDateTime = new Date(activityDate);
+    endDateTime.setHours(parseInt(endHour), parseInt(endMinute), 0);
 
     let status = 'upcoming';
     
-    if (now < startTime) {
+    if (now < startDateTime) {
       status = 'upcoming';
-    } else if (now >= startTime && now <= endTime) {
+    } else if (now >= startDateTime && now <= endDateTime) {
       status = 'ongoing';
     } else {
       status = 'completed';
     }
 
     this.setData({
-      'activity.status': status
+      'activity.status': status,
+      'activity.statusText': this.getStatusText(status)
     });
   },
 

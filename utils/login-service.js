@@ -40,67 +40,76 @@ class LoginService {
 
   /**
    * 执行微信登录流程
-   * @returns {Promise} 登录结果
    */
   async login() {
     try {
       console.log('开始执行登录流程');
       
-      // 调用微信登录API获取临时登录凭证code
+      // 1. 获取临时登录凭证code
       const loginResult = await this.wxLogin();
       const code = loginResult.code;
-      
       console.log('获取到临时登录凭证code:', code);
       
-      // 调用云函数获取 OpenID
+      // 2. 调用云函数获取 OpenID
       try {
         console.log('开始调用云函数获取 OpenID...');
         const cloudResult = await wx.cloud.callFunction({
-          name: 'login',
-          data: {
-            code: code
-          }
+          name: 'login'
         });
         
         console.log('云函数调用结果:', cloudResult);
         
-        if (cloudResult.result && cloudResult.result.openid) {
-          const openid = cloudResult.result.openid;
+        // 检查返回结果格式
+        if (!cloudResult || !cloudResult.result) {
+          throw new Error('云函数返回结果格式错误');
+        }
+
+        const { success, data, error } = cloudResult.result;
+        
+        if (success && data && data.openid) {
+          const openid = data.openid;
+          console.log('获取到OpenID:', openid);
+          
           wx.setStorageSync('openid', openid);
           
-          // 检查是否已绑定微信号
-          const wechatId = wx.getStorageSync('wechatId');
-          if (!wechatId) {
-            // 跳转到用户匹配页面
+          // 3. 在 Users 表中查找是否已存在该 OpenID
+          const sheetsAPI = getApp().globalData.sheetsAPI;
+          if (!sheetsAPI) {
+            throw new Error('sheetsAPI未初始化');
+          }
+
+          console.log('开始在Users表中查找OpenID:', openid);
+          const existingUser = await sheetsAPI.findUserByOpenId(openid);
+          
+          if (existingUser) {
+            // 找到已绑定的用户，保存用户信息
+            console.log('找到已绑定用户:', existingUser);
+            wx.setStorageSync('wechatId', existingUser.wechatId);
+            this.saveLoginState(code);
+            return {
+              success: true,
+              code: code,
+              openid: openid,
+              user: existingUser
+            };
+          } else {
+            // 未找到绑定用户，需要进行绑定
+            console.log('未找到绑定用户，需要进行用户匹配');
             wx.redirectTo({
               url: '/pages/user-match/index'
             });
             return {
               success: true,
-              needMatch: true
+              needMatch: true,
+              openid: openid
             };
           }
         } else {
-          console.error('云函数返回结果中没有 OpenID:', cloudResult);
+          throw new Error(error || '获取OpenID失败');
         }
       } catch (cloudErr) {
         console.error('调用云函数失败:', cloudErr);
-      }
-      
-      // 只有在已经绑定微信号的情况下，才保存登录状态并返回成功
-      const wechatId = wx.getStorageSync('wechatId');
-      if (wechatId) {
-        this.saveLoginState(code);
-        return {
-          success: true,
-          code: code,
-          openid: wx.getStorageSync('openid')
-        };
-      } else {
-        return {
-          success: false,
-          error: '需要先绑定用户信息'
-        };
+        throw cloudErr;
       }
     } catch (err) {
       console.error('登录失败:', err);

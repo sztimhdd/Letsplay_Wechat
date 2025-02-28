@@ -53,24 +53,22 @@ Page({
     }
 
     try {
-      const users = await sheetsAPI.searchUsers(keyword);
-      console.log('搜索结果:', users);
-      
-      this.setData({ 
+      // 使用缓存数据搜索用户
+      const sheetData = await sheetsAPI.loadAllSheetData();
+      const users = Object.entries(sheetData.users)
+        .filter(([wechatId]) => wechatId.toLowerCase().includes(keyword.toLowerCase()))
+        .map(([wechatId, userData]) => ({
+          wechatId,
+          balance: userData.balance || '0.00'
+        }));
+
+      this.setData({
         suggestedUsers: users,
         isSearching: false
       });
     } catch (err) {
       console.error('搜索用户失败:', err);
-      this.setData({ 
-        isSearching: false,
-        suggestedUsers: []
-      });
-      
-      wx.showToast({
-        title: '搜索失败',
-        icon: 'none'
-      });
+      this.setData({ isSearching: false });
     }
   },
 

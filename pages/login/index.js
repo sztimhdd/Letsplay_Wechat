@@ -57,8 +57,6 @@ Page({
         
         if (loginResult.success) {
             if (loginResult.needMatch) {
-                // 如果需要匹配用户，登录页面不做任何处理
-                // 因为 login-service 已经处理了跳转
                 console.log('需要进行用户匹配');
                 this.setData({ isLoading: false });
                 return;
@@ -66,16 +64,21 @@ Page({
             
             console.log('登录成功，使用默认用户信息');
             
-            // 更新用户表
+            // 使用新的统一方法更新用户表
             try {
-                await sheetsAPI.updateUserTable();
+                const sheetData = await sheetsAPI.loadAllSheetData();
+                if (!sheetData.users[loginResult.wechatId]) {
+                    await sheetsAPI.createNewUser({
+                        wechatId: loginResult.wechatId,
+                        openid: loginResult.openid
+                    });
+                }
                 console.log('用户表更新成功');
             } catch (err) {
                 console.error('用户表更新失败:', err);
             }
             
             // 设置全局用户信息
-            const app = getApp();
             app.globalData.userInfo = DEFAULT_USER;
             app.globalData.hasLogin = true;
             
