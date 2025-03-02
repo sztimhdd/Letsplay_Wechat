@@ -1,11 +1,16 @@
 /* pages/user-match/index.wxss */
 .container {
   padding: 30rpx;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-color: #f8f8f8;
 }
 
 .header {
   margin-bottom: 40rpx;
   text-align: center;
+  padding: 20rpx;
 }
 
 .title {
@@ -24,13 +29,28 @@
 
 .input-section {
   margin-bottom: 40rpx;
+  padding: 0 20rpx;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .wechat-input {
+  width: 100%;
+  height: 80rpx;
   border: 2rpx solid #ddd;
   border-radius: 8rpx;
   padding: 20rpx;
   font-size: 28rpx;
+  background-color: #fff;
+  box-shadow: 0 2rpx 6rpx rgba(0,0,0,0.05);
+  box-sizing: border-box;
+}
+
+.result-section {
+  flex: 1;
+  padding: 0 20rpx;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .suggested-users {
@@ -50,25 +70,102 @@
   margin-bottom: 20rpx;
   border-radius: 8rpx;
   box-shadow: 0 2rpx 4rpx rgba(0,0,0,0.1);
+  transition: all 0.3s;
+}
+
+.user-item:active {
+  background-color: #f0f0f0;
+  transform: scale(0.98);
+}
+
+.user-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10rpx;
 }
 
 .user-name {
+  font-size: 32rpx;
+  color: #333;
+  font-weight: bold;
+  word-break: break-all;
+  flex: 1;
+}
+
+.user-balance {
+  font-size: 28rpx;
+  color: #07c160;
+  margin-left: 20rpx;
+}
+
+.user-id {
+  font-size: 24rpx;
+  color: #999;
+  display: block;
+  word-break: break-all;
+}
+
+.no-match {
+  text-align: center;
+  margin-top: 40rpx;
+  padding: 30rpx;
+  background-color: #fff;
+  border-radius: 8rpx;
+  box-shadow: 0 2rpx 4rpx rgba(0,0,0,0.1);
+}
+
+.no-match-text {
   font-size: 32rpx;
   color: #333;
   display: block;
   margin-bottom: 10rpx;
 }
 
-.user-info {
+.no-match-tip {
   font-size: 28rpx;
   color: #666;
-}
-
-.no-match {
-  text-align: center;
-  margin-top: 40rpx;
+  display: block;
+  margin-bottom: 30rpx;
 }
 
 .create-btn {
   margin-top: 30rpx;
+  background-color: #07c160;
+  color: #fff;
+}
+
+.searching {
+  text-align: center;
+  margin-top: 40rpx;
+}
+
+.searching-text {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.initial-state {
+  text-align: center;
+  margin-top: 40rpx;
+}
+
+.initial-text {
+  font-size: 28rpx;
+  color: #666;
+}
+
+.footer-tips {
+  margin-top: 60rpx;
+  padding: 30rpx 20rpx;
+  background-color: #f0f0f0;
+  border-radius: 8rpx;
+}
+
+.tip-text {
+  font-size: 24rpx;
+  color: #999;
+  display: block;
+  margin-bottom: 10rpx;
+  text-align: center;
 }

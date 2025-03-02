@@ -1,11 +1,11 @@
 const app = getApp();
 const { userService } = require('./user-service');
+const { sheetsAPI } = require('../utils/sheets-api');
 
 class SignUpService {
   // 获取用户在表格中的行号
   async getUserRow(wechat) {
     try {
-      const sheetsAPI = app.globalData.sheetsAPI;
       console.log('getUserRow 中的 sheetsAPI:', {
         hasSheets: !!sheetsAPI,
         sheetsAPIFunctions: Object.keys(sheetsAPI || {})

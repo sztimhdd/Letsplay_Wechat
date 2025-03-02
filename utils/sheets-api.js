@@ -21,15 +21,25 @@ class SheetsAPI {
     this.SHEETS = {
       USER: 'Users',
       RECORD: 'Record',
-      DEPOSIT: 'Deposit Record'
+      DEPOSIT: 'Deposit Record',
+      FEECALCU: 'Feecalcu'
     };
     
     // 价格表配置
     this.PRICE_CONFIG = {
       SUMMER: {start: 4, end: 10},  // 夏季：4月-10月
       WINTER: {start: 11, end: 3},  // 冬季：11月-3月
-      PEAK_HOURS: {start: 16, end: 24} // 高峰时段：16:00-24:00
     };
+    
+    // 初始化GoogleAuth
+    try {
+      console.log('在构造函数中初始化GoogleAuth...');
+      this.auth = new GoogleAuth(credentials);
+      console.log('GoogleAuth初始化完成');
+    } catch (err) {
+      console.error('GoogleAuth初始化失败:', err);
+      // 不在构造函数中抛出错误，而是在后续方法中处理
+    }
 
     this.FIXED_COLUMNS = 5;  // A=Name, B=Wechat, C=Deposit, D=Balance, E=Spent YTD
     
@@ -39,17 +49,15 @@ class SheetsAPI {
     this.baseUrl = 'https://sheets.googleapis.com/v4/spreadsheets';
     this.spreadsheetId = '1wXoirvjHN2KuWyvG_xf4bDpQiPN02Ug4925afc1uUTc';
 
-    this.auth = new GoogleAuth(credentials);
-
     // 表格结构配置
     this.SHEET_CONFIG = {
       RECORD: {
         FIXED_COLUMNS: {
           NAME: 'A',      // 姓名
           WECHAT: 'B',    // 微信号
-          DATE: 'C',      // 日期
-          BALANCE: 'D',   // 余额
-          AMOUNT: 'E'     // 金额
+          DEPOSIT: 'C',   // 押金金额
+          BALANCE: 'D',   // 当前余额
+          SPENT_YTD: 'E'  // 年度消费
         },
         TRANSACTIONS_START: 'F',  // 交易记录开始列
         TRANSACTIONS_END: 'HH',   // 交易记录结束列
@@ -60,7 +68,9 @@ class SheetsAPI {
           DATE: 'A',      // 充值日期
           WECHAT: 'B',    // 微信号
           AMOUNT: 'C',    // 充值金额
-          METHOD: 'D'     // 充值方式
+          METHOD: 'D',    // 充值方式
+          BALANCE: 'E',   // 操作后余额
+          REMARK: 'F'     // 备注
         },
         DATA_START_ROW: 2
       },
@@ -69,6 +79,17 @@ class SheetsAPI {
           WECHAT_ID: 'A',    // 微信名称
           PINYIN_NAME: 'B',  // 拼音名称
           OPENID: 'C'        // OpenID
+        },
+        DATA_START_ROW: 2
+      },
+      FEECALCU: {
+        COLUMNS: {
+          ACTIVITY_ID: 'A',  // 活动ID
+          CALC_DATE: 'B',    // 计算日期
+          PARTICIPANTS: 'C', // 参与人数
+          TOTAL_FEE: 'D',    // 总费用
+          AVG_FEE: 'E',      // 人均费用
+          STATUS: 'F'        // 结算状态
         },
         DATA_START_ROW: 2
       }
@@ -81,7 +102,8 @@ class SheetsAPI {
         SHEET_DATA: 'cached_sheet_data',
         USERS: 'cached_users',
         ACTIVITIES: 'cached_activities',
-        DEPOSITS: 'cached_deposits'
+        DEPOSITS: 'cached_deposits',
+        FEECALCU: 'cached_feecalcu'
       }
     };
 
@@ -115,12 +137,14 @@ class SheetsAPI {
         // Record表（包括固定列和交易记录）
         `${this.SHEETS.RECORD}!A${this.SHEET_CONFIG.RECORD.DATA_START_ROW}:${this.SHEET_CONFIG.RECORD.TRANSACTIONS_END}`,
         // Deposit表
-        `${this.SHEETS.DEPOSIT}!A${this.SHEET_CONFIG.DEPOSIT.DATA_START_ROW}:D`
+        `${this.SHEETS.DEPOSIT}!A${this.SHEET_CONFIG.DEPOSIT.DATA_START_ROW}:F`,
+        // Feecalcu表
+        `${this.SHEETS.FEECALCU}!A${this.SHEET_CONFIG.FEECALCU.DATA_START_ROW}:F`
       ];
 
       // 3. 并行读取所有数据
       console.log('开始读取表格数据:', ranges);
-      const [usersData, recordData, depositData] = await Promise.all(
+      const [usersData, recordData, depositData, feecalcuData] = await Promise.all(
         ranges.map(range => this.readSheet(range))
       );
 
@@ -128,7 +152,8 @@ class SheetsAPI {
       const sheetData = {
         users: this.processUsersData(usersData),
         record: this.processRecordData(recordData),
-        deposits: this.processDepositsData(depositData)
+        deposits: this.processDepositsData(depositData),
+        feecalcu: this.processFeecalcuData(feecalcuData)
       };
 
       // 5. 更新缓存
@@ -146,9 +171,21 @@ class SheetsAPI {
    * 处理用户数据
    */
   processUsersData(usersData) {
+    console.log('处理用户数据:', usersData);
+    
     if (!usersData) return [];
-    return usersData
-      .filter(row => row[0])
+    
+    // 如果是API返回的对象格式，提取values属性
+    const values = usersData.values || usersData;
+    
+    // 确保values是数组
+    if (!Array.isArray(values)) {
+      console.warn('用户数据不是数组格式:', values);
+      return [];
+    }
+    
+    return values
+      .filter(row => row && row[0])
       .map(row => ({
         wechatId: row[0],
         pinyinName: row[1] || '',
@@ -161,14 +198,25 @@ class SheetsAPI {
    * 处理Record表数据
    */
   processRecordData(recordData) {
+    console.log('处理Record表数据:', recordData);
+    
     if (!recordData) return { balances: {}, activities: [] };
+    
+    // 如果是API返回的对象格式，提取values属性
+    const values = recordData.values || recordData;
+    
+    // 确保values是数组
+    if (!Array.isArray(values)) {
+      console.warn('Record表数据不是数组格式:', values);
+      return { balances: {}, activities: [] };
+    }
     
     const balances = {};
     const activities = [];
 
     try {
       // 1. 处理用户余额数据（前5列固定数据）
-      recordData.forEach((row, index) => {
+      values.forEach((row, index) => {
         if (index >= 5 && row[1]) {  // 从第6行开始是用户数据，B列是微信号
           balances[row[1]] = row[3] || '0.00';  // D列是余额
         }
@@ -178,11 +226,11 @@ class SheetsAPI {
       const FIXED_COLUMNS = 5; // A-E列是固定列
       
       // 获取活动基本信息行
-      const dateRow = recordData[0] || [];      // 第2行：活动日期 (M/DD/YYYY)
-      const venueRow = recordData[1] || [];     // 第3行：场地信息 (X号场 - XX人)
-      const timeRow = recordData[2] || [];      // 第4行：时间段 (HH:mm-HH:mm)
-      const feeRow = recordData[3] || [];       // 第5行：总费用
-      const participantRows = recordData.slice(5); // 从第6行开始是参与者数据
+      const dateRow = values[0] || [];      // 第2行：活动日期 (M/DD/YYYY)
+      const venueRow = values[1] || [];     // 第3行：场地信息 (X号场 - XX人)
+      const timeRow = values[2] || [];      // 第4行：时间段 (HH:mm-HH:mm)
+      const feeRow = values[3] || [];       // 第5行：总费用
+      const participantRows = values.slice(5); // 从第6行开始是参与者数据
 
       
 
@@ -190,41 +238,44 @@ class SheetsAPI {
       for (let colIndex = FIXED_COLUMNS; colIndex < dateRow.length; colIndex++) {
         // 1. 处理日期
         const rawDate = dateRow[colIndex];
-        if (!rawDate || rawDate.toLowerCase() === 'cancelled') {
-          continue;
-        }
-
-        // 标准化日期格式
-        let date;
-        try {
-          // 处理两种可能的格式：M/DD/YYYY 或 YYYY-MM-DD
-          let year, month, day;
-          
-          // 尝试匹配 M/DD/YYYY 格式
-          const slashMatch = rawDate.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-          if (slashMatch) {
-            [, month, day, year] = slashMatch;
-          } else {
-            // 尝试匹配 YYYY-MM-DD 格式
-            const dashMatch = rawDate.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
-            if (dashMatch) {
-              [, year, month, day] = dashMatch;
+        let date = new Date().toISOString().split('T')[0]; // 默认使用当前日期
+        
+        if (rawDate && rawDate.toLowerCase() !== 'cancelled') {
+          // 标准化日期格式
+          try {
+            // 处理两种可能的格式：M/DD/YYYY 或 YYYY-MM-DD
+            let year, month, day;
+            
+            // 尝试匹配 M/DD/YYYY 格式
+            const slashMatch = rawDate.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (slashMatch) {
+              [, month, day, year] = slashMatch;
+              // 标准化为 YYYY-MM-DD 格式
+              date = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
             } else {
-              console.warn(`无法解析日期格式: ${rawDate}`);
-              continue;
+              // 尝试匹配 YYYY-MM-DD 格式
+              const dashMatch = rawDate.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+              if (dashMatch) {
+                [, year, month, day] = dashMatch;
+                // 标准化为 YYYY-MM-DD 格式
+                date = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+              } else {
+                console.warn(`无法解析日期格式: ${rawDate}，使用当前日期`);
+              }
             }
+          } catch (err) {
+            console.error('日期处理错误:', err, '使用当前日期');
           }
-          
-          // 标准化为 YYYY-MM-DD 格式
-          date = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-        } catch (err) {
-          console.error('日期处理错误:', err);
-          continue;
+        } else if (rawDate && rawDate.toLowerCase() === 'cancelled') {
+          console.log('跳过已取消的活动');
+          continue; // 仍然跳过已明确标记为取消的活动
+        } else {
+          console.warn('日期为空，使用当前日期');
         }
 
         // 2. 解析场地信息
         const rawVenue = venueRow[colIndex] || '';
-        let venue = rawVenue, maxParticipants = 16; // 默认16人
+        let venue = rawVenue || '未指定场地', maxParticipants = 16; // 默认16人
 
         // 尝试解析标准格式 "X号场 - XX人"
         const venueMatch = rawVenue.match(/(\d+)号场\s*-\s*(\d+)人/);
@@ -238,29 +289,32 @@ class SheetsAPI {
           if (numberMatch) {
             venue = `${numberMatch[1]}号场`;
           }
-          // 如果都无法解析，直接使用原始字符串
+          // 如果都无法解析，直接使用原始字符串或默认值
         }
 
         // 3. 解析时间段
         const rawTimeSlot = timeRow[colIndex] || '';
-        if (!rawTimeSlot) {
-          continue;
-        }
-
-        // 分割并处理时间段
-        const timeParts = rawTimeSlot.split(/[-~]/);
-        if (timeParts.length !== 2) {
-          console.warn(`无效的时间段格式: ${rawTimeSlot}`);
-          continue;
-        }
-
-        // 处理开始和结束时间
-        const startTime = this.formatTime(timeParts[0]);
-        const endTime = this.formatTime(timeParts[1]);
-
-        if (!startTime || !endTime) {
-          console.warn(`无法解析时间段: ${rawTimeSlot}`);
-          continue;
+        let startTime = '00:00', endTime = '00:00';
+        
+        if (rawTimeSlot) {
+          // 分割并处理时间段
+          const timeParts = rawTimeSlot.split(/[-~]/);
+          if (timeParts.length === 2) {
+            // 处理开始和结束时间
+            const parsedStartTime = this.formatTime(timeParts[0]);
+            const parsedEndTime = this.formatTime(timeParts[1]);
+            
+            if (parsedStartTime && parsedEndTime) {
+              startTime = parsedStartTime;
+              endTime = parsedEndTime;
+            } else {
+              console.warn(`无法解析时间段: ${rawTimeSlot}，使用默认值`);
+            }
+          } else {
+            console.warn(`无效的时间段格式: ${rawTimeSlot}，使用默认值`);
+          }
+        } else {
+          console.warn(`时间段为空，使用默认值`);
         }
 
         const timeSlot = `${startTime}-${endTime}`;
@@ -433,14 +487,57 @@ class SheetsAPI {
    * 处理充值记录数据
    */
   processDepositsData(depositData) {
+    console.log('处理充值记录数据:', depositData);
+    
     if (!depositData) return [];
-    return depositData
-      .filter(row => row[0] && row[1])
+    
+    // 如果是API返回的对象格式，提取values属性
+    const values = depositData.values || depositData;
+    
+    // 确保values是数组
+    if (!Array.isArray(values)) {
+      console.warn('充值记录数据不是数组格式:', values);
+      return [];
+    }
+    
+    return values
+      .filter(row => row && row[0] && row[1])
       .map(row => ({
         date: row[0],
         wechatId: row[1],
         amount: row[2],
-        method: row[3]
+        method: row[3],
+        balance: row[4] || '0.00',
+        remark: row[5] || ''
+      }));
+  }
+
+  /**
+   * 处理费用计算表数据
+   */
+  processFeecalcuData(feecalcuData) {
+    console.log('处理费用计算表数据:', feecalcuData);
+    
+    if (!feecalcuData) return [];
+    
+    // 如果是API返回的对象格式，提取values属性
+    const values = feecalcuData.values || feecalcuData;
+    
+    // 确保values是数组
+    if (!Array.isArray(values)) {
+      console.warn('费用计算表数据不是数组格式:', values);
+      return [];
+    }
+    
+    return values
+      .filter(row => row && row[0])
+      .map(row => ({
+        activityId: row[0],
+        calcDate: row[1],
+        participants: parseInt(row[2] || 0),
+        totalFee: parseFloat(row[3] || 0).toFixed(2),
+        avgFee: parseFloat(row[4] || 0).toFixed(2),
+        status: row[5] || 'pending'
       }));
   }
 
@@ -464,7 +561,8 @@ class SheetsAPI {
       sheetData,
       users: sheetData.users,
       activities: sheetData.record.activities,
-      deposits: sheetData.deposits
+      deposits: sheetData.deposits,
+      feecalcu: sheetData.feecalcu
     };
     
     // 更新本地存储
@@ -566,7 +664,10 @@ class SheetsAPI {
 
       // 2. 读取Record表数据
       const range = `${this.SHEETS.RECORD}!A:D`;  // A=姓名, B=微信ID, C=押金, D=余额
-      const data = await this.readSheet(range);
+      const response = await this.readSheet(range);
+      
+      // 确保response.values存在且是数组
+      const data = response?.values || [];
       
       console.log('查询用户余额:', {
         wechatId,
@@ -575,7 +676,7 @@ class SheetsAPI {
       });
 
       // 3. 查找用户行
-      const userRow = data?.find(row => row[1] === wechatId);
+      const userRow = data.find(row => row[1] === wechatId);
       if (!userRow) {
         console.log('未找到用户余额记录');
         return '0.00';
@@ -606,7 +707,10 @@ class SheetsAPI {
 
       // 2. 读取Record表数据
       const range = `${this.SHEETS.RECORD}!A:E`;  // A=姓名, B=微信ID, E=年度消费
-      const data = await this.readSheet(range);
+      const response = await this.readSheet(range);
+      
+      // 确保response.values存在且是数组
+      const data = response?.values || [];
       
       console.log('查询年度消费:', {
         wechatId,
@@ -615,7 +719,7 @@ class SheetsAPI {
       });
 
       // 3. 查找用户行
-      const userRow = data?.find(row => row[1] === wechatId);
+      const userRow = data.find(row => row[1] === wechatId);
       if (!userRow) {
         console.log('未找到用户消费记录');
         return '0.00';
@@ -697,12 +801,22 @@ class SheetsAPI {
         throw new Error('请使用 2.2.3 或以上的基础库以使用云能力');
       }
 
+      // 初始化GoogleAuth
+      if (!this.auth) {
+        console.log('初始化GoogleAuth...');
+        this.auth = new GoogleAuth(credentials);
+        console.log('GoogleAuth初始化完成');
+      }
+
       // 初始化成功标记
       this.initialized = true;
       console.log('SheetsAPI 初始化成功');
 
     } catch (err) {
       console.error('SheetsAPI 初始化失败:', err);
+      if (err.message && err.message.includes('credentials')) {
+        console.error('凭证问题，请检查credentials.js文件是否正确配置');
+      }
       throw err;
     }
   }
@@ -712,10 +826,26 @@ class SheetsAPI {
    */
   async getAccessToken() {
     try {
+      console.log('开始获取访问令牌...');
+      if (!this.auth) {
+        console.log('GoogleAuth未初始化，正在初始化...');
+        this.auth = new GoogleAuth(credentials);
+      }
+      
+      // 如果已经有有效的访问令牌，直接返回
+      if (this.accessToken) {
+        console.log('使用已缓存的访问令牌');
+        return this.accessToken;
+      }
+      
       this.accessToken = await this.auth.getAccessToken();
+      console.log('成功获取访问令牌');
       return this.accessToken;
     } catch (err) {
       console.error('获取token失败:', err);
+      if (err.message && err.message.includes('Invalid JWT Signature')) {
+        console.error('JWT签名无效，请检查private_key格式是否正确');
+      }
       throw err;
     }
   }
@@ -724,52 +854,51 @@ class SheetsAPI {
    * 读取表格数据
    */
   async readSheet(range) {
-    if (!this.accessToken) {
-      await this.getAccessToken();
-    }
-
-    // 对范围进行编码
-    const encodedRange = encodeURIComponent(range);
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodedRange}`;
-    
-    console.log('读取范围:', range);
-    
-    return new Promise((resolve, reject) => {
-      wx.request({
-        url: url,
-        method: 'GET',
-        header: {
-          'Authorization': `Bearer ${this.accessToken}`,
-          'Accept': 'application/json'
-        },
-        success: (res) => {
-          console.log('API完整响应:', res);
-          
-          if (res.statusCode === 200) {
-            // 检查响应数据结构
-            if (res.data && res.data.values) {
-              console.log('读取到的数据:', res.data.values);
-              resolve(res.data.values);
+    try {
+      if (!this.accessToken) {
+        await this.getAccessToken();
+      }
+  
+      // 对范围进行编码
+      const encodedRange = encodeURIComponent(range);
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${this.spreadsheetId}/values/${encodedRange}`;
+      
+      console.log('读取范围:', range);
+      
+      return new Promise((resolve, reject) => {
+        wx.request({
+          url: url,
+          method: 'GET',
+          header: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Accept': 'application/json'
+          },
+          success: (res) => {
+            if (res.statusCode === 200) {
+              // 返回完整的响应对象
+              console.log('读取成功，数据格式:', res.data);
+              resolve(res.data);
+            } else if (res.statusCode === 401) {
+              // 令牌过期，清除缓存的令牌并重试
+              console.log('令牌已过期，重新获取...');
+              this.accessToken = null;
+              // 递归调用自身重试一次
+              this.readSheet(range).then(resolve).catch(reject);
             } else {
-              console.warn('API返回数据为空:', res.data);
-              resolve([]);
+              console.error('读取失败:', res);
+              reject(new Error(`读取失败: ${res.statusCode} ${res.errMsg || ''}`));
             }
-          } else {
-            console.error('Sheets API错误:', {
-              statusCode: res.statusCode,
-              data: res.data,
-              range: range,
-              url: url
-            });
-            reject(new Error(`API请求失败: ${res.statusCode} - ${JSON.stringify(res.data)}`));
+          },
+          fail: (err) => {
+            console.error('请求失败:', err);
+            reject(err);
           }
-        },
-        fail: (err) => {
-          console.error('请求失败:', err);
-          reject(err);
-        }
+        });
       });
-    });
+    } catch (error) {
+      console.error('读取表格数据出错:', error);
+      throw error;
+    }
   }
 
   /**
@@ -803,7 +932,19 @@ class SheetsAPI {
             majorDimension: "ROWS",
             values: values
           },
-          success: resolve,
+          success: (res) => {
+            if (res.statusCode === 200) {
+              resolve(res);
+            } else if (res.statusCode === 401) {
+              // 令牌过期，清除缓存的令牌并重试
+              console.log('令牌已过期，重新获取...');
+              this.accessToken = null;
+              // 递归调用自身重试一次
+              this.writeSheet(range, values).then(resolve).catch(reject);
+            } else {
+              reject(new Error(`API请求失败: ${res.statusCode} - ${JSON.stringify(res.data)}`));
+            }
+          },
           fail: reject
         });
       });
@@ -826,35 +967,50 @@ class SheetsAPI {
    * @param {Array} values - 要追加的数据
    */
   async appendSheet(range, values) {
-    if (!this.accessToken) {
-      await this.getAccessToken();
-    }
-
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
-    
-    return new Promise((resolve, reject) => {
-      wx.request({
-        url: url,
-        method: 'POST',
-        header: {
-          'Authorization': `Bearer ${this.accessToken}`,
-          'Content-Type': 'application/json'
-        },
-        data: {
-          range: range,
-          majorDimension: "ROWS",
-          values: values
-        },
-        success: (res) => {
-          if (res.statusCode === 200) {
-            resolve(res.data);
-          } else {
-            reject(new Error(`API请求失败: ${res.statusCode} - ${JSON.stringify(res.data)}`));
+    try {
+      if (!this.accessToken) {
+        await this.getAccessToken();
+      }
+  
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
+      
+      return new Promise((resolve, reject) => {
+        wx.request({
+          url: url,
+          method: 'POST',
+          header: {
+            'Authorization': `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          data: {
+            range: range,
+            majorDimension: "ROWS",
+            values: values
+          },
+          success: (res) => {
+            if (res.statusCode === 200) {
+              resolve(res.data);
+            } else if (res.statusCode === 401) {
+              // 令牌过期，清除缓存的令牌并重试
+              console.log('令牌已过期，重新获取...');
+              this.accessToken = null;
+              // 递归调用自身重试一次
+              this.appendSheet(range, values).then(resolve).catch(reject);
+            } else {
+              console.error('追加数据失败:', res);
+              reject(new Error(`追加数据失败: ${res.statusCode} - ${JSON.stringify(res.data)}`));
+            }
+          },
+          fail: (err) => {
+            console.error('请求失败:', err);
+            reject(err);
           }
-        },
-        fail: reject
+        });
       });
-    });
+    } catch (err) {
+      console.error('追加表格数据失败:', err);
+      throw err;
+    }
   }
 
   /**
@@ -2115,7 +2271,9 @@ class SheetsAPI {
   }
 
   /**
-   * 根据 OpenID 查找用户
+   * 根据OpenID查找用户
+   * @param {string} openid - 用户的OpenID
+   * @returns {Promise<Object|null>} - 用户信息或null
    */
   async findUserByOpenId(openid) {
     try {
@@ -2126,27 +2284,50 @@ class SheetsAPI {
 
       // 2. 读取Users表数据
       const range = `${this.SHEETS.USER}!A2:C`;  // A=WechatID, B=PinyinName, C=OpenID
-      const users = await this.readSheet(range);
+      const response = await this.readSheet(range);
       
       console.log('查询Users表:', {
         range,
-        usersCount: users?.length,
+        response
+      });
+
+      // 3. 提取values数组
+      const values = response && response.values ? response.values : [];
+      
+      if (!values || values.length === 0) {
+        console.log('Users表为空或未找到数据');
+        return null;
+      }
+      
+      console.log('处理用户数据:', {
+        usersCount: values.length,
         targetOpenId: openid
       });
 
-      // 3. 查找匹配的用户
-      const userRow = users?.find(row => row[2] === openid);
+      // 4. 查找匹配的用户
+      let userRow = null;
+      for (let i = 0; i < values.length; i++) {
+        const row = values[i];
+        if (row.length > 2 && row[2] === openid) {
+          userRow = row;
+          break;
+        }
+      }
+      
       if (!userRow) {
-        console.log('未找到用户记录');
+        console.log('未找到匹配的OpenID记录');
         return null;
       }
 
-      // 4. 返回用户信息
+      // 5. 获取用户余额
+      const balance = await this.getUserBalance(userRow[0]) || '0.00';
+
+      // 6. 返回用户信息
       const userInfo = {
         wechatId: userRow[0],
         pinyinName: userRow[1] || '',
         openid: userRow[2],
-        balance: '0.00'  // 默认余额
+        balance
       };
 
       console.log('找到用户:', userInfo);
@@ -2282,8 +2463,108 @@ class SheetsAPI {
       throw err;
     }
   }
+
+  /**
+   * 更新用户的OpenID
+   * @param {string} wechatId - 微信ID
+   * @param {string} openid - 要更新的OpenID
+   * @returns {Promise<boolean>} - 更新结果
+   */
+  async updateUserOpenId(wechatId, openid) {
+    try {
+      // 1. 确保已初始化
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      // 2. 读取Users表数据
+      const range = `${this.SHEETS.USER}!A2:C`;
+      const users = await this.readSheet(range);
+      
+      // 3. 查找匹配的用户行
+      let userRowIndex = -1;
+      for (let i = 0; i < users.length; i++) {
+        if (users[i][0] === wechatId) {
+          userRowIndex = i + 2; // 加2是因为表头在第1行，数据从第2行开始
+          break;
+        }
+      }
+
+      // 4. 如果找到用户，更新OpenID
+      if (userRowIndex > 0) {
+        const updateRange = `${this.SHEETS.USER}!C${userRowIndex}`;
+        await this.updateCell(updateRange, openid);
+        console.log('用户OpenID更新成功:', {
+          wechatId,
+          openid,
+          row: userRowIndex
+        });
+        return true;
+      } else {
+        // 5. 如果没有找到用户，在Users表中创建新行
+        const newUserRow = [wechatId, '', openid];
+        await this.appendSheet(`${this.SHEETS.USER}!A:C`, [newUserRow]);
+        console.log('创建新用户并设置OpenID:', {
+          wechatId,
+          openid
+        });
+        return true;
+      }
+    } catch (err) {
+      console.error('更新用户OpenID失败:', err);
+      throw err;
+    }
+  }
+
+  /**
+   * 获取用户完整信息
+   * @param {string} wechatId - 微信ID
+   * @returns {Promise<Object>} - 用户完整信息
+   */
+  async getUserFullInfo(wechatId) {
+    try {
+      // 1. 确保已初始化
+      if (!this.initialized) {
+        await this.initialize();
+      }
+
+      // 2. 获取用户基本信息
+      const userInfo = await this.getUser(wechatId);
+      
+      // 3. 获取用户余额
+      const balance = await this.getUserBalance(wechatId);
+      
+      // 4. 获取用户年度消费
+      const ytdSpent = await this.getUserYTDSpent(wechatId);
+      
+      // 5. 从Users表获取OpenID和拼音名
+      const usersData = await this.readSheet(`${this.SHEETS.USER}!A:C`);
+      let pinyinName = '';
+      let openid = '';
+      
+      for (const row of usersData || []) {
+        if (row[0] === wechatId) {
+          pinyinName = row[1] || '';
+          openid = row[2] || '';
+          break;
+        }
+      }
+      
+      return {
+        wechatId,
+        name: userInfo?.name || '',
+        pinyinName,
+        openid,
+        balance: balance || '0.00',
+        ytdSpent: ytdSpent || '0.00'
+      };
+    } catch (err) {
+      console.error('获取用户完整信息失败:', err);
+      return null;
+    }
+  }
 }
 
 // 创建并导出单例
 const sheetsAPI = new SheetsAPI();
-module.exports = sheetsAPI; 
+module.exports = { sheetsAPI };

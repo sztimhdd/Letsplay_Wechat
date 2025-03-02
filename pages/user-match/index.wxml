@@ -1,39 +1,68 @@
 <view class="container">
   <view class="header">
     <text class="title">绑定用户信息</text>
-    <text class="subtitle">请输入您的微信号以匹配已有用户</text>
+    <text class="subtitle">{{searchMessage}}</text>
   </view>
 
   <view class="input-section">
     <input 
       class="wechat-input"
       type="text"
-      placeholder="请输入微信号"
+      placeholder="请输入您的微信名称"
+      placeholder-style="color: #999;"
       value="{{wechatId}}"
       bindinput="handleInput"
+      maxlength="40"
+      confirm-type="search"
     />
   </view>
 
-  <view class="suggested-users" wx:if="{{suggestedUsers.length > 0}}">
-    <text class="section-title">找到以下匹配用户：</text>
-    <view 
-      class="user-item"
-      wx:for="{{suggestedUsers}}"
-      wx:key="wechatId"
-      data-user="{{item}}"
-      bindtap="selectUser"
-    >
-      <text class="user-name">{{item.wechatId}}</text>
-      <text class="user-info">余额: ¥{{item.balance}}</text>
+  <!-- 搜索结果 -->
+  <view class="result-section">
+    <!-- 找到匹配用户 -->
+    <view class="suggested-users" wx:if="{{searchStatus === 'found'}}">
+      <text class="section-title">找到以下匹配用户：</text>
+      <view 
+        class="user-item"
+        wx:for="{{suggestedUsers}}"
+        wx:key="name"
+        data-user="{{item}}"
+        bindtap="selectUser"
+      >
+        <view class="user-info-row">
+          <text class="user-name">{{item.name}}</text>
+          <text class="user-balance">余额: ¥{{item.balance}}</text>
+        </view>
+        <text class="user-id">拼音: {{item.pinyinName || '无'}}</text>
+      </view>
+    </view>
+
+    <!-- 未找到匹配用户 -->
+    <view class="no-match" wx:elif="{{searchStatus === 'not_found' && wechatId}}">
+      <text class="no-match-text">未找到匹配用户</text>
+      <text class="no-match-tip">您可以创建一个新用户</text>
+      <button 
+        class="create-btn"
+        type="primary"
+        bindtap="createNewUser"
+      >创建新用户</button>
+    </view>
+
+    <!-- 搜索中 -->
+    <view class="searching" wx:elif="{{searchStatus === 'searching'}}">
+      <text class="searching-text">正在搜索...</text>
+    </view>
+
+    <!-- 初始状态 -->
+    <view class="initial-state" wx:elif="{{searchStatus === 'initial'}}">
+      <text class="initial-text">请在上方输入您的微信名称</text>
     </view>
   </view>
 
-  <view class="no-match" wx:elif="{{!isSearching && wechatId}}">
-    <text>未找到匹配用户</text>
-    <button 
-      class="create-btn"
-      type="primary"
-      bindtap="createNewUser"
-    >创建新用户</button>
+  <!-- 底部提示 -->
+  <view class="footer-tips">
+    <text class="tip-text">提示：输入您的微信名称以匹配已有用户记录</text>
+    <text class="tip-text">例如：Rock、巴音布鲁克之土、哒哒、查理等</text>
+    <text class="tip-text">如果您是新用户，请输入您的微信名称并点击"创建新用户"</text>
   </view>
 </view> 

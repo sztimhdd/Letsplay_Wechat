@@ -1,7 +1,7 @@
 const app = getApp();
 const loginService = require('../../utils/login-service');
 const signUpService = require('../../services/signup-service');
-const sheetsAPI = require('../../utils/sheets-api');
+const { sheetsAPI } = require('../../utils/sheets-api');
 
 Component({
   properties: {

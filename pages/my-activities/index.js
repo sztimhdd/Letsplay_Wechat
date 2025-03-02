@@ -1,7 +1,7 @@
 // pages/my-activities/index.js
 
 const loginService = require('../../utils/login-service');
-const sheetsAPI = require('../../utils/sheets-api');
+const { sheetsAPI } = require('../../utils/sheets-api');
 const { userService } = require('../../services/user-service');
 const app = getApp();
 
